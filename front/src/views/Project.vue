@@ -61,7 +61,7 @@
               <template #title>
                 <span class="menu-text">模型测试</span>
               </template>
-              <a-menu-item key="test-execute" @click="goPage('test-execute')">
+              <a-menu-item key="testbank-test" @click="goPage('testbank-test')">
                 测试执行
               </a-menu-item>
               <a-menu-item key="test-review" @click="goPage('test-review')">
@@ -204,7 +204,7 @@ const router = useRouter()
 const collapsed = ref(false)
 const sidebarWidth = 280
 
-// 默认选中“控制台”
+// 默认选中"控制台"
 const selectedKey = ref('console')
 const openKeys = ref([])
 

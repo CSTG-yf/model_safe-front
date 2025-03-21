@@ -16,6 +16,9 @@ import TestBankExtension from '@/views/TestBankExtension.vue'
 import TestBankExtension2 from '@/views/TestBankExtension2.vue'
 import TestBankExtension3 from "@/views/TestBankExtension3.vue";
 import TestBankExtension4 from "@/views/TestBankExtension4.vue";
+import TestBankTest from "@/views/TestBankTest.vue";
+import TestBankTest2 from "@/views/TestBankTest2.vue";
+import TestBankTest3 from "@/views/TestBankTest3.vue";
 
 const routes = [
     { path: '/', redirect: '/login' },
@@ -50,7 +53,10 @@ const routes = [
             { path: 'testbank-extension', component: TestBankExtension },
             { path: 'testbank-extension2', component: TestBankExtension2 },
             { path: 'testbank-extension3', component: TestBankExtension3 },
-            { path: 'testbank-extension4', component: TestBankExtension4 }
+            { path: 'testbank-extension4', component: TestBankExtension4 },
+            { path: 'testbank-test', component: TestBankTest },
+            { path: 'testbank-test2', component: TestBankTest2 },
+            { path: 'testbank-test3', component: TestBankTest3 }
         ]
     }
 ]
