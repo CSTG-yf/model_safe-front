@@ -38,7 +38,7 @@
             <p class="sample-text">这是原始题目的示例文本。</p>
           </div>
           <div class="arrow">
-            <span>➡</span>
+            <RightOutlined style="font-size: 20px; color: #1890ff;" />
           </div>
           <div class="question-box">
             <label>变形后的题目</label>
@@ -62,6 +62,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 // 导入所需的组件
 import { Steps, Select, Button } from 'ant-design-vue';
+import { RightOutlined } from '@ant-design/icons-vue';
 
 const { Option } = Select;
 

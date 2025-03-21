@@ -19,6 +19,9 @@ import TestBankExtension4 from "@/views/TestBankExtension4.vue";
 import TestBankTest from "@/views/TestBankTest.vue";
 import TestBankTest2 from "@/views/TestBankTest2.vue";
 import TestBankTest3 from "@/views/TestBankTest3.vue";
+import JailbreakTransform from "@/views/JailbreakTransform.vue";
+import JailbreakTransform2 from "@/views/JailbreakTransform2.vue";
+import JailbreakTransform3 from "@/views/JailbreakTransform3.vue";
 
 const routes = [
     { path: '/', redirect: '/login' },
@@ -56,7 +59,10 @@ const routes = [
             { path: 'testbank-extension4', component: TestBankExtension4 },
             { path: 'testbank-test', component: TestBankTest },
             { path: 'testbank-test2', component: TestBankTest2 },
-            { path: 'testbank-test3', component: TestBankTest3 }
+            { path: 'testbank-test3', component: TestBankTest3 },
+            { path: 'jailbreak-transform', component: JailbreakTransform },
+            { path: 'jailbreak-transform2', component: JailbreakTransform2 },
+            { path: 'jailbreak-transform3', component: JailbreakTransform3 }
         ]
     }
 ]

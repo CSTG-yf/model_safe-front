@@ -64,6 +64,9 @@
               <a-menu-item key="testbank-test" @click="goPage('testbank-test')">
                 测试执行
               </a-menu-item>
+              <a-menu-item key="jailbreak-transform" @click="goPage('jailbreak-transform')">
+                越狱变形测试
+              </a-menu-item>
               <a-menu-item key="test-review" @click="goPage('test-review')">
                 测试审核
               </a-menu-item>
