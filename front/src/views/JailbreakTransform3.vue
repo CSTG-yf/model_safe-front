@@ -23,6 +23,21 @@
         </div>
       </div>
 
+      <!-- 测试基本信息编辑 -->
+      <a-card class="test-info-card" title="测试基本信息">
+        <a-form layout="vertical">
+          <a-form-item label="测试ID">
+            <a-input v-model:value="testId" disabled />
+          </a-form-item>
+          <a-form-item label="测试名称" required>
+            <a-input v-model:value="testName" placeholder="请输入测试名称" />
+          </a-form-item>
+          <a-form-item label="测试备注">
+            <a-textarea v-model:value="testDesc" :rows="3" placeholder="请输入测试备注" />
+          </a-form-item>
+        </a-form>
+      </a-card>
+
       <!-- 测试统计卡片 -->
       <div class="result-stats">
         <a-row :gutter="16">
@@ -53,6 +68,7 @@
           class="jailbreak-list"
           :data-source="jailbreakResults"
           :pagination="{ pageSize: 5 }"
+          item-layout="horizontal"
         >
           <template #renderItem="{ item }">
             <a-list-item>
@@ -66,14 +82,18 @@
                   </a>
                 </template>
                 <template #avatar>
-                  <a-avatar :style="{ backgroundColor: item.successful ? '#52c41a' : '#f5222d' }">
+                  <a-avatar 
+                    :style="{ backgroundColor: item.successful ? '#52c41a' : '#f5222d' }"
+                    class="result-avatar"
+                  >
                     {{ item.successful ? '成功' : '失败' }}
                   </a-avatar>
                 </template>
               </a-list-item-meta>
-              <div>
+              <template #actions>
                 <a-button type="link" @click="showDetail(item.id)">查看详情</a-button>
-              </div>
+                <a-button type="link" danger @click="deleteItem(item.id)">删除题目</a-button>
+              </template>
             </a-list-item>
           </template>
         </a-list>
@@ -81,7 +101,7 @@
 
       <!-- 测试详情弹窗 -->
       <a-modal
-        v-model:visible="detailVisible"
+        v-model:open="detailVisible"
         title="越狱测试详情"
         width="800px"
         :footer="null"
@@ -144,21 +164,41 @@
 
     <!-- 底部按钮区域 -->
     <div class="footer-area">
-      <a-button @click="exportResults">导出测试报告</a-button>
-      <a-button type="primary" class="finish-btn" @click="finishTest">
-        完成测试
-      </a-button>
+      <a-space>
+        <a-button danger @click="showDeleteConfirm">删除报告</a-button>
+        <a-button type="primary" class="finish-btn" @click="finishTest">
+          完成测试
+        </a-button>
+      </a-space>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <a-modal
+      v-model:open="deleteModalVisible"
+      title="删除报告"
+      @ok="deleteReport"
+      okText="删除"
+      cancelText="取消"
+      okType="danger"
+    >
+      <p>确定要删除这份测试报告吗？删除后数据将无法恢复。</p>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Steps, Button, Card, Row, Col, Progress, List, Avatar, Modal, Tag, Collapse } from 'ant-design-vue'
+import { Steps, Button, Card, Row, Col, Progress, List, Avatar, Modal, Tag, Collapse, Form, Input } from 'ant-design-vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 
 const router = useRouter()
+
+// 测试基本信息
+const testId = ref('JLB-20240601-001')
+const testName = ref('越狱变形安全性测试')
+const testDesc = ref('')
 
 // 测试结果统计数据
 const totalCases = ref(24)
@@ -169,6 +209,9 @@ const failedJailbreaks = ref(8)
 const detailVisible = ref(false)
 const selectedDetail = ref(null)
 const activeIterationKeys = ref([0]) // 默认展开第一个迭代
+
+// 删除确认弹窗控制
+const deleteModalVisible = ref(false)
 
 // 越狱测试结果列表
 const jailbreakResults = ref([
@@ -281,13 +324,39 @@ function getScoreColor(score) {
   return '#f5222d' // 高风险，红色
 }
 
-// 导出结果
-function exportResults() {
-  alert('导出功能开发中...')
-}
-
 // 完成测试
 function finishTest() {
+  router.push('/project/test-manage')
+}
+
+// 删除题目
+function deleteItem(id) {
+  // 实现删除单个题目的逻辑
+  const index = jailbreakResults.value.findIndex(item => item.id === id)
+  if (index !== -1) {
+    const deleted = jailbreakResults.value[index]
+    jailbreakResults.value.splice(index, 1)
+    // 更新统计数据
+    totalCases.value -= 1
+    if (deleted.successful) {
+      successfulJailbreaks.value -= 1
+    } else {
+      failedJailbreaks.value -= 1
+    }
+    message.success('题目已删除！')
+  }
+}
+
+// 显示删除确认弹窗
+function showDeleteConfirm() {
+  deleteModalVisible.value = true
+}
+
+// 处理删除报告
+function deleteReport() {
+  // 实现删除报告的逻辑
+  message.success('报告已删除！')
+  // 删除成功后可以跳转到控制台页面
   router.push('/project/console')
 }
 </script>
@@ -345,6 +414,28 @@ function finishTest() {
 .result-title p {
   margin: 4px 0 0;
   color: #666;
+}
+
+/* 测试基本信息编辑卡片 */
+.test-info-card {
+  margin-bottom: 24px;
+}
+
+.test-info-card .ant-card-body {
+  padding: 16px;
+}
+
+.test-info-card .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.test-info-card .ant-form-item label {
+  font-weight: 600;
+}
+
+.test-info-card .ant-input,
+.test-info-card .ant-textarea {
+  width: 100%;
 }
 
 /* 统计卡片 */
@@ -492,5 +583,50 @@ function finishTest() {
 
 .finish-btn {
   margin-left: 16px;
+}
+
+/* 调整列表项和头像样式 */
+:deep(.jailbreak-list .ant-list-item) {
+  padding: 12px;
+  align-items: center;
+}
+
+:deep(.jailbreak-list .ant-list-item-meta) {
+  align-items: center;
+}
+
+:deep(.jailbreak-list .ant-list-item-meta-avatar) {
+  margin-top: 0;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+:deep(.jailbreak-list .ant-avatar) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  font-size: 14px;
+}
+
+:deep(.jailbreak-list .ant-list-item-meta-content) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+:deep(.jailbreak-list .ant-list-item-action) {
+  margin-top: 0;
+}
+
+.result-avatar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: normal;
+  margin-right: 12px;
 }
 </style> 

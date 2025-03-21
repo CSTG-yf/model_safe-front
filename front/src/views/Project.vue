@@ -67,9 +67,9 @@
               <a-menu-item key="jailbreak-transform" @click="goPage('jailbreak-transform')">
                 越狱变形测试
               </a-menu-item>
-              <a-menu-item key="test-review" @click="goPage('test-review')">
+              <!-- <a-menu-item key="test-review" @click="goPage('test-review')">
                 测试审核
-              </a-menu-item>
+              </a-menu-item> -->
               <a-menu-item key="test-manage" @click="goPage('test-manage')">
                 测试管理
               </a-menu-item>
@@ -84,11 +84,11 @@
                 <span class="menu-text">模型评估</span>
               </template>
               <a-menu-item key="perf-eval" @click="goPage('perf-eval')">
-                性能评估
+                模型评估
               </a-menu-item>
-              <a-menu-item key="safe-eval" @click="goPage('safe-eval')">
+              <!-- <a-menu-item key="safe-eval" @click="goPage('safe-eval')">
                 安全评估
-              </a-menu-item>
+              </a-menu-item> -->
             </a-sub-menu>
 
             <!-- 父层级：评估报告 -->

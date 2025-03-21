@@ -23,6 +23,21 @@
         </div>
       </div>
 
+      <!-- 测试基本信息编辑 -->
+      <a-card class="test-info-card" title="测试基本信息">
+        <a-form layout="vertical">
+          <a-form-item label="测试ID">
+            <a-input v-model:value="testId" disabled />
+          </a-form-item>
+          <a-form-item label="测试名称" required>
+            <a-input v-model:value="testName" placeholder="请输入测试名称" />
+          </a-form-item>
+          <a-form-item label="测试备注">
+            <a-textarea v-model:value="testDesc" :rows="3" placeholder="请输入测试备注" />
+          </a-form-item>
+        </a-form>
+      </a-card>
+
       <!-- 测试统计卡片 -->
       <div class="result-stats">
         <a-row :gutter="16">
@@ -95,11 +110,16 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Steps, Button, Card, Row, Col, Progress } from 'ant-design-vue'
+import { Steps, Button, Card, Row, Col, Progress, Form, Input } from 'ant-design-vue'
 import { CheckCircleFilled } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+
+// 测试基本信息
+const testId = ref('TEST-20240601-001')
+const testName = ref('模型鲁棒性测试')
+const testDesc = ref('')
 
 // 测试结果统计数据
 const totalCases = ref(120)
@@ -113,8 +133,8 @@ const failRate = computed(() => 100 - passRate.value)
 
 // 查看测试报告
 function goToReview() {
-  // 这里可以跳转到人工复核页面，暂时先弹出提示
-  alert('前往人工复核页面（功能暂未实现）')
+  // 跳转到人工复核页面
+  router.push(`/project/test-review/1`)
 }
 
 // 完成测试
@@ -211,6 +231,11 @@ function finishTest() {
 
 /* 图表卡片 */
 .chart-card {
+  margin-bottom: 24px;
+}
+
+/* 测试信息卡片 */
+.test-info-card {
   margin-bottom: 24px;
 }
 

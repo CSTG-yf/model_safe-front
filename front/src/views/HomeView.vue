@@ -27,10 +27,6 @@
               :open-keys="openKeys"
               @openChange="openKeys = $event"
           >
-            <a-menu-item key="search" :style="menuItemStyle" @click="onMenuClick('search')">
-              <search-outlined :style="iconStyle" />
-              <span class="menu-text">Search Project</span>
-            </a-menu-item>
 
             <a-menu-item key="newproject" :style="menuItemStyle" @click="onMenuClick('newproject')">
               <folder-add-outlined :style="iconStyle" />

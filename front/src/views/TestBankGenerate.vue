@@ -107,6 +107,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { QuestionCircleOutlined, ExclamationCircleFilled } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 // 专业领域配置
 const domainTags = [
@@ -156,6 +159,9 @@ function generateTestBank() {
     total: domainQuestionCount.value,
     ratios: securityRatios.value
   })
+  
+  // 跳转到生成进度页面
+  router.push('/project/testbank-generate-progress')
 }
 </script>
 

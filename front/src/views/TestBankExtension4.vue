@@ -30,7 +30,7 @@ const goToDashboard = () => {
 };
 
 const goToQuestionBank = () => {
-  router.push("/question-bank");
+  router.push("/project/testbank-manage");
 };
 </script>
 

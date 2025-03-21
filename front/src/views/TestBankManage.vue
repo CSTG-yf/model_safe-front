@@ -53,8 +53,10 @@
 import { ref, computed } from 'vue'
 import { Row, Col, Card, Button, Input } from 'ant-design-vue'
 import { DatabaseOutlined } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
 
 const { Search } = Input
+const router = useRouter()
 
 // 搜索关键词
 const searchKeyword = ref('')
@@ -85,7 +87,7 @@ function onSearch(value) {
 // 点击题库名称 -> 跳转详情
 function goToDetail(bank) {
   console.log('点击题库名称，跳转详情:', bank)
-  // TODO: router.push(`/project/testbank-manage/${bank.id}`)
+  router.push(`/project/testbank-detail/${bank.id}`)
 }
 
 // 编辑题库
