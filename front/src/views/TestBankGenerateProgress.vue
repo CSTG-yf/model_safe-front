@@ -22,13 +22,13 @@
             :width="320"
             :stroke-color="progressColor"
             :stroke-width="10"
-            :format="percent => `${percent}%`"
+            :format="(percent) => `${percent}%`"
           />
           <div class="progress-status">{{ generateStatus }}</div>
         </template>
         <template v-else>
           <div class="success-icon">
-            <CheckCircleFilled style="font-size: 160px; color: #52c41a;" />
+            <CheckCircleFilled style="font-size: 160px; color: #52c41a" />
             <div class="success-text">题库生成已完成!</div>
           </div>
         </template>
@@ -37,10 +37,10 @@
 
     <!-- 底部操作区域 -->
     <div class="footer-area">
-      <a-button 
-        type="primary" 
-        class="next-btn" 
-        @click="goNextStep" 
+      <a-button
+        type="primary"
+        class="next-btn"
+        @click="goNextStep"
         :disabled="!generateCompleted"
       >
         下一步
@@ -50,81 +50,125 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Steps, Button, Progress } from 'ant-design-vue'
-import { CheckCircleFilled } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from "vue";
+import { Steps, Button, Progress } from "ant-design-vue";
+import { CheckCircleFilled } from "@ant-design/icons-vue";
+import { useRouter, useRoute } from "vue-router";
+import { useCounterStore } from "@/stores/counterStore.js";
+import axios from "axios";
+import { message } from "ant-design-vue";
 
-const router = useRouter()
+const router = useRouter();
+const route = useRoute();
+const counterStore = useCounterStore();
 
 // 生成进度
-const generateProgress = ref(0)
+const generateProgress = ref(0);
 // 生成状态文本
-const generateStatus = ref('正在生成题库...')
+const generateStatus = ref("正在生成题库...");
 // 生成是否完成
-const generateCompleted = ref(false)
+const generateCompleted = ref(false);
 
 // 进度颜色
 const progressColor = computed(() => {
-  if (generateProgress.value < 30) return '#ff4d4f'
-  if (generateProgress.value < 70) return '#faad14'
-  return '#52c41a'
-})
+  if (generateProgress.value < 30) return "#ff4d4f";
+  if (generateProgress.value < 70) return "#faad14";
+  return "#52c41a";
+});
 
 // 模拟生成进度
 function startGenerateProgress() {
-  let timer = null
-  let speed = 1
+  let timer = null;
+  let speed = 1;
 
   timer = setInterval(() => {
     // 进度增量随机变化，模拟真实生成进度
     if (generateProgress.value < 30) {
-      speed = Math.random() * 1 + 0.5
+      speed = Math.random() * 1 + 0.5;
     } else if (generateProgress.value < 60) {
-      speed = Math.random() * 0.8 + 0.3
+      speed = Math.random() * 0.8 + 0.3;
     } else if (generateProgress.value < 90) {
-      speed = Math.random() * 0.5 + 0.1
+      speed = Math.random() * 0.5 + 0.1;
     } else {
-      speed = 0.1
+      speed = 0.1;
     }
 
-    generateProgress.value += speed
-    
+    generateProgress.value += speed;
+
     // 更新状态文本
     if (generateProgress.value < 30) {
-      generateStatus.value = '正在初始化题库生成环境...'
+      generateStatus.value = "正在初始化题库生成环境...";
     } else if (generateProgress.value < 60) {
-      generateStatus.value = '正在根据知识点生成题目...'
+      generateStatus.value = "正在根据知识点生成题目...";
     } else if (generateProgress.value < 90) {
-      generateStatus.value = '正在优化题目质量...'
+      generateStatus.value = "正在优化题目质量...";
     } else {
-      generateStatus.value = '即将完成题库生成...'
+      generateStatus.value = "即将完成题库生成...";
     }
 
     // 当进度达到100%时停止
     if (generateProgress.value >= 100) {
-      clearInterval(timer)
-      generateProgress.value = 100
-      generateCompleted.value = true
-      generateStatus.value = '题库生成已完成!'
+      clearInterval(timer);
+      generateProgress.value = 100;
+      generateCompleted.value = true;
+      generateStatus.value = "题库生成已完成!";
     }
-  }, 150)
+  }, 150);
 }
 
 // 跳转到下一步
 function goNextStep() {
   if (generateCompleted.value) {
-    router.push('/project/testbank-generate-complete')
+    router.push("/project/testbank-generate-complete");
   }
 }
 
 // 页面加载时自动开始生成进度
-onMounted(() => {
-  // 延迟半秒开始，提高用户体验
-  setTimeout(() => {
-    startGenerateProgress()
-  }, 500)
-})
+onMounted(async () => {
+  const projectId = route.params.projectId;
+  const questionBankId = counterStore.questionBankId;
+
+  if (!projectId || !questionBankId) {
+    message.error("缺少必要参数");
+    return;
+  }
+
+  try {
+    // 发送题库生成请求
+    const response = await axios({
+      method: "post",
+      url: `http://127.0.0.1:8000/api/question-bank/${projectId}/generate/`,
+      headers: {
+        Authorization: `Bearer ${counterStore.access}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        field: route.query.field,
+        prompt: route.query.prompt,
+        number: parseInt(route.query.number),
+        security_ratio: JSON.parse(route.query.security_ratio),
+        question_bank_id: questionBankId,
+      },
+    });
+
+    if (
+      response.data.status === 200 &&
+      response.data.data.status === "success"
+    ) {
+      // 启动进度条动画
+      startGenerateProgress();
+      // 标记生成完成，使下一步按钮可用
+      setTimeout(() => {
+        generateCompleted.value = true;
+      }, 100);
+    } else {
+      message.error("题库生成失败");
+    }
+  } catch (error) {
+    console.error("题库生成请求失败:", error);
+    message.error(error.message || "请求失败");
+  }
+});
 </script>
 
 <style scoped>
@@ -132,7 +176,7 @@ onMounted(() => {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -195,4 +239,4 @@ onMounted(() => {
 .next-btn {
   min-width: 100px;
 }
-</style> 
+</style>

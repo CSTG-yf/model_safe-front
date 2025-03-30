@@ -36,10 +36,13 @@ import ReportManage from "@/views/ReportManage.vue";
 import ReportDetail from "@/views/ReportDetail.vue";
 import TestBankGenerateProgress from "@/views/TestBankGenerateProgress.vue";
 import TestBankGenerateComplete from "@/views/TestBankGenerateComplete.vue";
+import testjson from '../views/testjson.vue'
+import { useCounterStore } from '@/stores/counterStore';
 
 const routes = [
     { path: '/', redirect: '/login' },
     { path: '/login', component: LoginView },
+    { path: '/testjson', component: testjson },
     {
         path: '/home',
         component: HomeView,
@@ -61,7 +64,7 @@ const routes = [
         ]
     },
     {
-        path: '/project',
+        path: '/project/:projectId?',
         component: Project,
         children: [
             { path: '', redirect: 'console' },
@@ -103,5 +106,18 @@ const router = createRouter({
     history: createWebHistory(),
     routes
 })
+
+router.beforeEach((to, from, next) => {
+  const store = useCounterStore();
+  const publicPages = ['/login', '/register'];
+  const authRequired = !publicPages.includes(to.path);
+
+  if (authRequired && !store.isLoggedIn()) {
+    store.clearUserInfo();  // 确保清除所有状态
+    next('/login');
+  } else {
+    next();
+  }
+});
 
 export default router

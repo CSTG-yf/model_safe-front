@@ -15,7 +15,7 @@
         <!-- 表单标题区域 -->
         <div class="form-header">
           <h3 class="form-title">登录</h3>
-          <!-- 在登录状态下，新的一行显示“还没有账号？ 注册”，其中“注册”为蓝色链接 -->
+          <!-- 在登录状态下，新的一行显示"还没有账号？ 注册"，其中"注册"为蓝色链接 -->
           <p class="register-text" v-if="!isRegister">
             还没有账号？ <a @click="toggleRegister">注册</a>
           </p>
@@ -23,37 +23,57 @@
 
         <!-- 登录表单 -->
         <a-form v-if="!isRegister" layout="vertical">
-          <a-form-item label="账号">
-            <a-input v-model:value="loginForm.username" placeholder="请输入账号" />
+          <a-form-item label="邮箱">
+            <a-input v-model:value="loginForm.email" placeholder="请输入邮箱" />
           </a-form-item>
           <a-form-item label="密码">
-            <a-input-password v-model:value="loginForm.password" placeholder="请输入密码" />
+            <a-input-password
+              v-model:value="loginForm.password"
+              placeholder="请输入密码"
+            />
           </a-form-item>
           <a-form-item>
             <a class="float-right">忘记密码？</a>
           </a-form-item>
-          <a-button type="primary" block @click="login">登录</a-button>
+          <a-button type="primary" block @click="login" :loading="loading"
+            >登录</a-button
+          >
         </a-form>
 
         <!-- 注册表单 -->
         <a-form v-else layout="vertical">
-          <a-typography-title :level="3">注册</a-typography-title>
+          <a-typography-title :level="3">注册并登录</a-typography-title>
           <a-form-item label="企业名称">
-            <a-input v-model:value="registerForm.companyName" placeholder="请输入企业名称" />
+            <a-input
+              v-model:value="registerForm.company_name"
+              placeholder="请输入企业名称"
+            />
           </a-form-item>
-          <a-form-item label="账号">
-            <a-input v-model:value="registerForm.username" placeholder="请输入账号" />
+          <a-form-item label="邮箱">
+            <a-input
+              v-model:value="registerForm.email"
+              placeholder="请输入邮箱"
+            />
           </a-form-item>
           <a-form-item label="密码">
-            <a-input-password v-model:value="registerForm.password" placeholder="请输入密码" />
+            <a-input-password
+              v-model:value="registerForm.password"
+              placeholder="请输入密码"
+            />
           </a-form-item>
           <a-form-item label="确认密码">
-            <a-input-password v-model:value="registerForm.confirmPassword" placeholder="请确认密码" />
+            <a-input-password
+              v-model:value="confirmPassword"
+              placeholder="请确认密码"
+            />
           </a-form-item>
-          <a-button type="primary" block @click="register">注册</a-button>
+          <a-button type="primary" block @click="register" :loading="loading"
+            >注册</a-button
+          >
           <p class="footer-text">注册即表示您已同意所有用户条款。</p>
-          <!-- 关闭按钮 -->
-          <a-button type="text" class="close-button" @click="toggleRegister">×</a-button>
+          <a-button type="text" class="close-button" @click="toggleRegister"
+            >×</a-button
+          >
         </a-form>
       </div>
     </div>
@@ -61,40 +81,109 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useCounterStore } from "@/stores/counterStore";
+import { message } from "ant-design-vue";
+import axios from "@/utils/axios";
 
-const router = useRouter()
-const isRegister = ref(false)
+const router = useRouter();
+const store = useCounterStore();
+const isRegister = ref(false);
+const loading = ref(false);
+const confirmPassword = ref("");
 
 const loginForm = ref({
-  username: '',
-  password: ''
-})
+  email: "",
+  password: "",
+});
 
 const registerForm = ref({
-  companyName: '',
-  username: '',
-  password: '',
-  confirmPassword: ''
-})
+  company_name: "",
+  email: "",
+  password: "",
+});
 
 const toggleRegister = () => {
-  isRegister.value = !isRegister.value
-}
+  isRegister.value = !isRegister.value;
+  // 清空表单
+  loginForm.value = { email: "", password: "" };
+  registerForm.value = { company_name: "", email: "", password: "" };
+  confirmPassword.value = "";
+};
 
-const login = () => {
-  router.push('/home')
-}
+const login = async () => {
+  if (!loginForm.value.email || !loginForm.value.password) {
+    message.warning("请填写完整的登录信息");
+    return;
+  }
 
-const register = () => {
-  console.log('注册信息:', registerForm.value)
-}
+  loading.value = true;
+  try {
+    const response = await axios.post("/users/login/", loginForm.value);
+
+    if (response.data.result === "success") {
+      store.setUserInfo(response.data);
+      message.success("登录成功");
+      router.push("/home");
+    } else {
+      message.error(response.data.message || "登录失败");
+    }
+  } catch (error) {
+    console.error("登录失败:", error);
+    message.error(error.response?.data?.message || "登录失败，请稍后重试");
+  } finally {
+    loading.value = false;
+  }
+};
+
+const register = async () => {
+  if (
+    !registerForm.value.company_name ||
+    !registerForm.value.email ||
+    !registerForm.value.password
+  ) {
+    message.warning("请填写完整的注册信息");
+    return;
+  }
+
+  if (registerForm.value.password !== confirmPassword.value) {
+    message.warning("两次输入的密码不一致");
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const response = await axios.post("/users/register/", registerForm.value);
+
+    if (response.data.result === "success") {
+      store.setUserInfo(response.data);
+      message.success("注册成功");
+      router.push("/home");
+    } else {
+      message.error(response.data.message || "注册失败");
+    }
+  } catch (error) {
+    console.error("注册失败:", error);
+    if (error.response) {
+      console.error("错误响应数据:", error.response.data);
+    }
+    const errorMsg =
+      error.response?.data?.errors?.email?.[0] ||
+      error.response?.data?.message ||
+      "注册失败，请稍后重试";
+    message.error(errorMsg);
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <style scoped>
 /* 全局设置：占满整个浏览器视口 */
-html, body, #app {
+html,
+body,
+#app {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -109,7 +198,7 @@ html, body, #app {
   grid-template-columns: 2fr 1fr;
   width: 100vw;
   height: 100vh;
-  background: url('/images/loginbg.png') center center no-repeat;
+  background: url("/images/loginbg.png") center center no-repeat;
   background-size: cover;
 }
 

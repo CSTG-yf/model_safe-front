@@ -6,11 +6,11 @@
     <!-- 搜索栏 -->
     <div class="search-section">
       <a-input-search
-          v-model:value="keyword"
-          placeholder="输入领域关键词（如：金融风控、医疗诊断等）"
-          enter-button="搜索"
-          size="large"
-          class="search-bar"
+        v-model:value="keyword"
+        placeholder="输入领域关键词（如：金融风控、医疗诊断等）"
+        enter-button="搜索"
+        size="large"
+        class="search-bar"
       />
     </div>
 
@@ -21,11 +21,11 @@
         <h3 class="section-title">选择专业领域（单选）：</h3>
         <div class="tag-list">
           <a-checkable-tag
-              v-for="tag in domainTags"
-              :key="tag.value"
-              :checked="selectedDomain === tag.value"
-              @click="onDomainSelect(tag.value)"
-              class="domain-tag"
+            v-for="tag in domainTags"
+            :key="tag.value"
+            :checked="selectedDomain === tag.value"
+            @click="onDomainSelect(tag.value)"
+            class="domain-tag"
           >
             {{ tag.label }}
             <a-tooltip :title="tag.desc">
@@ -39,12 +39,12 @@
       <div class="count-section">
         <h3 class="count-title">领域题目总数：</h3>
         <a-input-number
-            v-model:value="domainQuestionCount"
-            :min="10"
-            :max="500"
-            :step="10"
-            class="count-input"
-            addon-after="题"
+          v-model:value="domainQuestionCount"
+          :min="10"
+          :max="500"
+          :step="10"
+          class="count-input"
+          addon-after="题"
         />
       </div>
     </div>
@@ -54,10 +54,10 @@
       <h3 class="section-title">安全题目分类配置（必选）</h3>
       <a-row :gutter="[16, 12]">
         <a-col
-            v-for="(item, index) in securityCategories"
-            :key="index"
-            :span="8"
-            class="ratio-col"
+          v-for="(item, index) in securityCategories"
+          :key="index"
+          :span="8"
+          class="ratio-col"
         >
           <div class="ratio-item">
             <a-tooltip :title="item.desc">
@@ -65,11 +65,11 @@
             </a-tooltip>
             <div class="ratio-control">
               <a-slider
-                  v-model:value="securityRatios[item.key]"
-                  :min="0"
-                  :max="100"
-                  :step="5"
-                  class="slider"
+                v-model:value="securityRatios[item.key]"
+                :min="0"
+                :max="100"
+                :step="5"
+                class="slider"
               />
               <span class="ratio-value">{{ securityRatios[item.key] }}%</span>
             </div>
@@ -82,13 +82,16 @@
     <!-- 生成按钮 -->
     <div class="action-section">
       <a-button
-          type="primary"
-          size="large"
-          @click="generateTestBank"
-          :disabled="totalRatio !== 100 || !selectedDomain"
-          class="generate-btn"
+        type="primary"
+        size="large"
+        @click="generateTestBank"
+        :disabled="totalRatio !== 100 || !selectedDomain || loading"
+        :loading="loading"
+        class="generate-btn"
       >
-        生成观测题库（共{{ domainQuestionCount }}题）
+        {{
+          loading ? "正在提交..." : `生成观测题库（共${domainQuestionCount}题）`
+        }}
       </a-button>
       <div class="alert-container">
         <div v-if="totalRatio !== 100" class="alert-item">
@@ -105,64 +108,190 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { QuestionCircleOutlined, ExclamationCircleFilled } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from "vue";
+import {
+  QuestionCircleOutlined,
+  ExclamationCircleFilled,
+} from "@ant-design/icons-vue";
+import { useRouter, useRoute } from "vue-router";
+import { useCounterStore } from "@/stores/counterStore.js";
+import axios from "axios";
+import { message } from "ant-design-vue";
 
-const router = useRouter()
+const router = useRouter();
+const route = useRoute();
+const counterStore = useCounterStore();
+
+// 关键词搜索
+const keyword = ref(""); // 细分领域关键词
 
 // 专业领域配置
 const domainTags = [
-  { value: 'finance', label: '金融', desc: '银行、证券、保险等金融行业' },
-  { value: 'medical', label: '医疗', desc: '临床诊断、药物研发等医疗健康行业' },
-  { value: 'education', label: '教育', desc: '课程教学、考试评测等教育行业' },
-  { value: 'legal', label: '法律', desc: '合同审查、法律咨询等法律服务行业' },
-  { value: 'manufacturing', label: '制造', desc: '工业制造、智能制造、质量控制' },
-  { value: 'energy', label: '能源', desc: '电力、新能源、石油天然气' },
-  { value: 'transport', label: '交通', desc: '智能驾驶、交通管控、物流' },
-  { value: 'government', label: '政务', desc: '公共服务、电子政务、行政审批' },
-  { value: 'media', label: '传媒', desc: '新闻采编、内容审核、广告营销' },
-  { value: 'retail', label: '零售', desc: '电商、实体店管理、供应链优化' }
-]
-const selectedDomain = ref(null)
-const domainQuestionCount = ref(100) // 领域题目总数
+  { value: "finance", label: "金融", desc: "银行、证券、保险等金融行业" },
+  { value: "medical", label: "医疗", desc: "临床诊断、药物研发等医疗健康行业" },
+  { value: "education", label: "教育", desc: "课程教学、考试评测等教育行业" },
+  { value: "legal", label: "法律", desc: "合同审查、法律咨询等法律服务行业" },
+  {
+    value: "manufacturing",
+    label: "制造",
+    desc: "工业制造、智能制造、质量控制",
+  },
+  { value: "energy", label: "能源", desc: "电力、新能源、石油天然气" },
+  { value: "transport", label: "交通", desc: "智能驾驶、交通管控、物流" },
+  { value: "government", label: "政务", desc: "公共服务、电子政务、行政审批" },
+  { value: "media", label: "传媒", desc: "新闻采编、内容审核、广告营销" },
+  { value: "retail", label: "零售", desc: "电商、实体店管理、供应链优化" },
+];
+const selectedDomain = ref(null);
+const domainQuestionCount = ref(100); // 领域题目总数
 
 // 安全配置
 const securityCategories = [
-  { key: 'core_value', label: '核心价值观', desc: '包含违反社会主义核心价值观的内容，如危害国家安全、宣扬极端主义等' },
-  { key: 'discrimination', label: '歧视性内容', desc: '包含民族、性别、地域等歧视性内容' },
-  { key: 'compliance', label: '商业合规', desc: '商业违法违规风险，如知识产权侵权、不正当竞争等' },
-  { key: 'rights', label: '合法权益', desc: '侵犯肖像权、隐私权等他人合法权益的内容' },
-  { key: 'reliability', label: '专业可靠性', desc: '无法满足医疗、金融等专业领域的安全可靠性要求' }
-]
+  {
+    key: "core_value",
+    label: "核心价值观",
+    desc: "包含违反社会主义核心价值观的内容，如危害国家安全、宣扬极端主义等",
+    apiKey: "A1",
+  },
+  {
+    key: "discrimination",
+    label: "歧视性内容",
+    desc: "包含民族、性别、地域等歧视性内容",
+    apiKey: "A2",
+  },
+  {
+    key: "compliance",
+    label: "商业合规",
+    desc: "商业违法违规风险，如知识产权侵权、不正当竞争等",
+    apiKey: "A3",
+  },
+  {
+    key: "rights",
+    label: "合法权益",
+    desc: "侵犯肖像权、隐私权等他人合法权益的内容",
+    apiKey: "A4",
+  },
+  {
+    key: "reliability",
+    label: "专业可靠性",
+    desc: "无法满足医疗、金融等专业领域的安全可靠性要求",
+    apiKey: "A5",
+  },
+];
 const securityRatios = ref({
   core_value: 25,
   discrimination: 20,
   compliance: 20,
   rights: 20,
-  reliability: 15
-})
+  reliability: 15,
+});
+
+// 请求状态
+const loading = ref(false);
 
 // 计算属性
 const totalRatio = computed(() =>
-    Object.values(securityRatios.value).reduce((sum, val) => sum + Number(val), 0)
-)
+  Object.values(securityRatios.value).reduce((sum, val) => sum + Number(val), 0)
+);
 
 // 事件处理
 function onDomainSelect(domain) {
-  selectedDomain.value = selectedDomain.value === domain ? null : domain
+  selectedDomain.value = selectedDomain.value === domain ? null : domain;
 }
 
-function generateTestBank() {
-  console.log('生成配置：', {
-    domain: selectedDomain.value,
-    total: domainQuestionCount.value,
-    ratios: securityRatios.value
-  })
-  
-  // 跳转到生成进度页面
-  router.push('/project/testbank-generate-progress')
+// 获取当前项目的领域名称中文表示
+function getDomainLabel(value) {
+  const domain = domainTags.find((tag) => tag.value === value);
+  return domain ? domain.label : value;
 }
+
+// 生成安全比例数组
+function generateSecurityRatioArray() {
+  return securityCategories.map((category) => ({
+    category_type: category.apiKey,
+    ratio: securityRatios.value[category.key],
+  }));
+}
+
+// 生成题库
+async function generateTestBank() {
+  if (!selectedDomain.value || totalRatio.value !== 100) {
+    message.warning("请确保已选择专业领域且安全分类比例总和为100%");
+    return;
+  }
+
+  // 获取项目ID
+  const projectId = route.params.projectId;
+  if (!projectId) {
+    message.error("无法获取项目ID");
+    return;
+  }
+  console.log("当前 access_token:", counterStore.access);
+  console.log("当前 projectId:", projectId);
+  loading.value = true;
+  try {
+    // 第一步：获取 question_bank_id
+    const getResponse = await axios({
+      method: "GET",
+      url: `http://127.0.0.1:8000/api/question-bank/${projectId}/generate/`,
+      headers: {
+        Authorization: `Bearer ${counterStore.access}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("第一步响应:", getResponse.data);
+
+    if (getResponse.data.status === 200) {
+      const questionBankId = getResponse.data.data.question_bank_id;
+      // 存储到 pinia
+      counterStore.setQuestionBankId(questionBankId);
+
+      // 跳转到进度页面，传递必要参数
+      router.push({
+        path: `/project/${projectId}/testbank-generate-progress`,
+        query: {
+          field: getDomainLabel(selectedDomain.value),
+          prompt:
+            keyword.value ||
+            `关于${getDomainLabel(selectedDomain.value)}的题目`,
+          number: domainQuestionCount.value,
+          security_ratio: JSON.stringify(generateSecurityRatioArray()),
+        },
+      });
+    } else {
+      throw new Error("获取题库ID失败");
+    }
+  } catch (error) {
+    console.error("生成题库请求失败:", error);
+    let errorMsg = "请求失败";
+    if (error.response) {
+      console.log("错误响应:", error.response);
+      if (error.response.status === 405) {
+        errorMsg = "请求方法不允许，请联系管理员确认正确的请求方法";
+      } else if (error.response.status === 400) {
+        errorMsg = `请求参数错误: ${
+          error.response.data?.message || "未知错误"
+        }`;
+      } else {
+        errorMsg = `服务器错误 (${error.response.status}): ${
+          error.response.data?.message || error.message
+        }`;
+      }
+    }
+    message.error(errorMsg);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 页面加载时检查项目ID
+onMounted(() => {
+  const projectId = route.params.projectId || counterStore.projectId;
+  if (!projectId) {
+    message.warning("未检测到项目ID，部分功能可能无法正常使用");
+  }
+});
 </script>
 
 <style scoped>
@@ -172,7 +301,7 @@ function generateTestBank() {
   padding: 24px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .page-title {
@@ -223,7 +352,7 @@ function generateTestBank() {
 .count-title {
   margin: 0;
   font-size: 16px;
-  color: rgba(0,0,0,0.85);
+  color: rgba(0, 0, 0, 0.85);
   font-weight: 500;
 }
 .count-input {
@@ -303,10 +432,10 @@ function generateTestBank() {
 :deep(.ant-tag-checkable-checked) {
   background: #1677ff;
   color: white;
-  box-shadow: 0 2px 8px rgba(22,119,255,0.2);
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.2);
 }
 .tag-tip-icon {
-  color: rgba(0,0,0,0.45);
+  color: rgba(0, 0, 0, 0.45);
   margin-left: 6px;
 }
 </style>
