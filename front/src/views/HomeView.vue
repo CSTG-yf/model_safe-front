@@ -58,14 +58,14 @@
             </a-menu-item>
 
             <!-- 测试项目 Qwen - 保持固定 -->
-            <a-menu-item
+            <!-- <a-menu-item
               key="qwens"
               :style="menuItemStyle"
               @click="goToTestProject"
             >
               <robot-outlined :style="iconStyle" />
               <span class="menu-text">Qwen2.5 (测试)</span>
-            </a-menu-item>
+            </a-menu-item> -->
           </a-menu>
 
           <!-- 下方菜单 -->

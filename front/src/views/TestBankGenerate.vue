@@ -8,7 +8,7 @@
       <a-input-search
         v-model:value="keyword"
         placeholder="输入领域关键词（如：金融风控、医疗诊断等）"
-        enter-button="搜索"
+        enter-button=""
         size="large"
         class="search-bar"
       />
@@ -40,9 +40,9 @@
         <h3 class="count-title">领域题目总数：</h3>
         <a-input-number
           v-model:value="domainQuestionCount"
-          :min="10"
+          :min="1"
           :max="500"
-          :step="10"
+          :step="1"
           class="count-input"
           addon-after="题"
         />
@@ -242,8 +242,13 @@ async function generateTestBank() {
 
     console.log("第一步响应:", getResponse.data);
 
-    if (getResponse.data.status === 200) {
-      const questionBankId = getResponse.data.data.question_bank_id;
+    // 判断返回数据是否正确
+    if (
+      getResponse.data.message === "success" &&
+      getResponse.data.question_bank_id
+    ) {
+      const questionBankId = getResponse.data.question_bank_id;
+
       // 存储到 pinia
       counterStore.setQuestionBankId(questionBankId);
 
@@ -260,7 +265,8 @@ async function generateTestBank() {
         },
       });
     } else {
-      throw new Error("获取题库ID失败");
+      // 如果返回的数据格式不符合预期，抛出异常
+      throw new Error("获取题库ID失败，返回数据格式不正确");
     }
   } catch (error) {
     console.error("生成题库请求失败:", error);

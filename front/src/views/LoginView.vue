@@ -42,7 +42,7 @@
 
         <!-- 注册表单 -->
         <a-form v-else layout="vertical">
-          <a-typography-title :level="3">注册并登录</a-typography-title>
+          <a-typography-title :level="3">注册</a-typography-title>
           <a-form-item label="企业名称">
             <a-input
               v-model:value="registerForm.company_name"
@@ -68,7 +68,7 @@
             />
           </a-form-item>
           <a-button type="primary" block @click="register" :loading="loading"
-            >注册</a-button
+            >注册并登录</a-button
           >
           <p class="footer-text">注册即表示您已同意所有用户条款。</p>
           <a-button type="text" class="close-button" @click="toggleRegister"

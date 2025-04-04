@@ -1,21 +1,57 @@
 <template>
   <div class="report-detail">
     <h2 class="page-title">报告详情</h2>
-    <p>报告 ID：{{ reportId }}</p>
-    <div class="placeholder">这里将展示 PDF 或其他报告内容...</div>
+
+    <!-- 渲染的报告内容 -->
+    <div v-html="renderedReportDetail" class="report-content"></div>
+
     <a-button @click="goBack" class="back-btn">返回</a-button>
   </div>
 </template>
 
 <script setup>
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import axios from "axios";
+import { marked } from "marked"; // 引入 marked 库
+import { useCounterStore } from "@/stores/counterStore.js"; // 假设你有这个 store
 
-const route = useRoute()
-const router = useRouter()
-const reportId = route.params.id
+const route = useRoute();
+const router = useRouter();
+const counterStore = useCounterStore();
 
+// 获取报告 ID
+const reportId = route.params.id;
+
+// 状态变量
+const reportDetail = ref("");
+const renderedReportDetail = ref("");
+
+// 获取报告详情并渲染 Markdown 内容
+onMounted(async () => {
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/report-generation/report/${reportId}/`,
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+        },
+      }
+    );
+
+    const report = response.data;
+    reportDetail.value = report.report_detail;
+
+    // 使用 marked 渲染 Markdown 为 HTML
+    renderedReportDetail.value = marked(reportDetail.value);
+  } catch (error) {
+    console.error("获取报告详情失败:", error);
+  }
+});
+
+// 返回
 function goBack() {
-  router.push('/project/report-manage')
+  router.go(-1);
 }
 </script>
 
@@ -24,7 +60,7 @@ function goBack() {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .page-title {
@@ -33,13 +69,15 @@ function goBack() {
   margin-bottom: 16px;
 }
 
-.placeholder {
-  background: #f0f0f0;
-  padding: 50px;
-  text-align: center;
-  font-size: 16px;
-  color: #666;
-  margin: 20px 0;
+.report-content {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  max-height: 600px;
+  overflow-y: auto;
+  white-space: pre-wrap; /* 保持换行 */
+  word-wrap: break-word; /* 长单词自动换行 */
 }
 
 .back-btn {

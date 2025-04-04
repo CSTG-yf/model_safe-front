@@ -3,7 +3,6 @@
     <!-- 顶部标题 + 进度条 -->
     <div class="header-area">
       <h2 class="page-title">测试执行</h2>
-      <!-- 步骤条：共3步，这里处于第3步 -->
       <a-steps :current="2" class="step-bar">
         <a-step title="选择题库" />
         <a-step title="进行测试" />
@@ -15,7 +14,7 @@
     <div class="result-area">
       <div class="result-header">
         <div class="result-icon">
-          <CheckCircleFilled style="font-size: 48px; color: #52c41a;" />
+          <CheckCircleFilled style="font-size: 48px; color: #52c41a" />
         </div>
         <div class="result-title">
           <h3>测试执行成功</h3>
@@ -26,14 +25,15 @@
       <!-- 测试基本信息编辑 -->
       <a-card class="test-info-card" title="测试基本信息">
         <a-form layout="vertical">
-          <a-form-item label="测试ID">
-            <a-input v-model:value="testId" disabled />
-          </a-form-item>
           <a-form-item label="测试名称" required>
             <a-input v-model:value="testName" placeholder="请输入测试名称" />
           </a-form-item>
           <a-form-item label="测试备注">
-            <a-textarea v-model:value="testDesc" :rows="3" placeholder="请输入测试备注" />
+            <a-textarea
+              v-model:value="testDesc"
+              :rows="3"
+              placeholder="请输入测试备注"
+            />
           </a-form-item>
         </a-form>
       </a-card>
@@ -41,57 +41,71 @@
       <!-- 测试统计卡片 -->
       <div class="result-stats">
         <a-row :gutter="16">
-          <a-col :span="8">
+          <a-col :span="12">
             <a-card class="stat-card">
-              <div class="stat-value">{{ totalCases }}</div>
+              <div class="stat-value">{{ totalSamples }}</div>
               <div class="stat-label">测试用例总数</div>
             </a-card>
           </a-col>
-          <a-col :span="8">
+          <a-col :span="12">
             <a-card class="stat-card">
-              <div class="stat-value success">{{ passedCases }}</div>
-              <div class="stat-label">通过用例</div>
-            </a-card>
-          </a-col>
-          <a-col :span="8">
-            <a-card class="stat-card">
-              <div class="stat-value error">{{ failedCases }}</div>
-              <div class="stat-label">失败用例</div>
+              <div class="stat-value success">{{ averageScore }}</div>
+              <div class="stat-label">平均分</div>
             </a-card>
           </a-col>
         </a-row>
       </div>
 
-      <!-- 测试结果图表 -->
-      <a-card class="chart-card" title="测试结果分布">
+      <!-- 测试成绩预览 -->
+      <a-card class="chart-card" title="测试成绩预览">
         <div class="chart-container">
-          <div class="pie-chart">
-            <a-progress 
-              type="circle" 
-              :percent="passRate" 
-              :width="160"
-              :format="percent => `${percent}%`"
-              :stroke-color="{
-                '0%': '#108ee9',
-                '100%': '#52c41a',
-              }"
-            />
+          <div class="charts-wrapper">
+            <div class="chart-item">
+              <a-progress
+                type="circle"
+                :percent="Math.floor((averageScore / 5) * 100)"
+                :width="140"
+                :format="(percent) => `${percent}%`"
+                :stroke-color="'#1890ff'"
+              />
+              <div class="chart-label">平均分</div>
+            </div>
+            <div class="chart-item">
+              <a-progress
+                type="circle"
+                :percent="Math.floor((toxicityAccuracy / 1) * 100)"
+                :width="140"
+                :format="(percent) => `${percent}%`"
+                :stroke-color="'#f5222d'"
+              />
+              <div class="chart-label">毒性分</div>
+            </div>
+            <div class="chart-item">
+              <a-progress
+                type="circle"
+                :percent="Math.floor((hallucinationAccuracy / 1) * 100)"
+                :width="140"
+                :format="(percent) => `${percent}%`"
+                :stroke-color="'#52c41a'"
+              />
+              <div class="chart-label">幻觉分</div>
+            </div>
           </div>
           <div class="chart-info">
             <div class="info-item">
-              <div class="info-dot success"></div>
-              <div class="info-label">通过率</div>
-              <div class="info-value">{{ passRate }}%</div>
+              <div class="info-dot" style="background-color: #1890ff"></div>
+              <div class="info-label">平均分</div>
+              <div class="info-value">{{ averageScore }} / 5</div>
             </div>
             <div class="info-item">
               <div class="info-dot error"></div>
-              <div class="info-label">失败率</div>
-              <div class="info-value">{{ failRate }}%</div>
+              <div class="info-label">毒性分</div>
+              <div class="info-value">{{ toxicityAccuracy }} / 1</div>
             </div>
             <div class="info-item">
-              <div class="info-dot"></div>
-              <div class="info-label">总耗时</div>
-              <div class="info-value">{{ testDuration }}</div>
+              <div class="info-dot success"></div>
+              <div class="info-label">幻觉分</div>
+              <div class="info-value">{{ hallucinationAccuracy }} / 1</div>
             </div>
           </div>
         </div>
@@ -100,48 +114,117 @@
 
     <!-- 底部按钮区域 -->
     <div class="footer-area">
-      <a-button @click="goToReview">前往人工复核</a-button>
       <a-button type="primary" class="finish-btn" @click="finishTest">
-        测试完成
+        下一步
       </a-button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { Steps, Button, Card, Row, Col, Progress, Form, Input } from 'ant-design-vue'
-import { CheckCircleFilled } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { CheckCircleFilled } from "@ant-design/icons-vue";
+import {
+  Button,
+  Card,
+  Row,
+  Col,
+  Progress,
+  Input,
+  Form,
+  Textarea,
+} from "ant-design-vue";
+import axios from "axios";
+import { message } from "ant-design-vue";
+import { useCounterStore } from "@/stores/counterStore.js";
 
-const router = useRouter()
+const router = useRouter();
+const route = useRoute();
+const counterStore = useCounterStore();
+
+// 获取路由中的项目ID和评测ID
+const projectId = route.params.projectId;
+const evaluationId = route.query.evaluationId;
 
 // 测试基本信息
-const testId = ref('TEST-20240601-001')
-const testName = ref('模型鲁棒性测试')
-const testDesc = ref('')
+const testName = ref("");
+const testDesc = ref("");
 
-// 测试结果统计数据
-const totalCases = ref(120)
-const passedCases = ref(108)
-const failedCases = ref(12)
-const testDuration = ref('5分32秒')
+// 测试统计数据
+const totalSamples = ref(0);
+const averageScore = ref(0);
+const hallucinationAccuracy = ref(0);
+const toxicityAccuracy = ref(0);
 
-// 通过率和失败率
-const passRate = computed(() => Math.round((passedCases.value / totalCases.value) * 100))
-const failRate = computed(() => 100 - passRate.value)
+// 获取测试详情
+async function fetchTestDetails() {
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/model-evaluation/${evaluationId}/detail/`,
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-// 查看测试报告
-function goToReview() {
-  // 跳转到人工复核页面
-  router.push(`/project/test-review/1`)
+    if (response.data.message === "评测详情获取成功") {
+      const {
+        total_samples,
+        average_score,
+        hallucination_accuracy,
+        toxicity_accuracy,
+      } = response.data.data;
+      totalSamples.value = total_samples;
+      averageScore.value = average_score;
+      hallucinationAccuracy.value = hallucination_accuracy;
+      toxicityAccuracy.value = toxicity_accuracy;
+    } else {
+      message.error("获取测试详情失败");
+    }
+  } catch (error) {
+    console.error(error);
+    message.error("获取测试详情失败");
+  }
 }
 
-// 完成测试
+// 完成测试并跳转到测试管理页面
 function finishTest() {
-  // 跳转到测试管理页面
-  router.push('/project/test-manage')
+  // 保存测试名称和备注到后端
+  axios
+    .put(
+      `http://localhost:8000/api/model-evaluation/${evaluationId}/detail/`,
+      {
+        name: testName.value,
+        description: testDesc.value,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    )
+    .then(() => {
+      // 跳转到测试管理页面
+      router.push(`/project/${projectId}/test-manage`);
+    })
+    .catch((error) => {
+      console.error(error);
+      message.error("保存失败");
+    });
 }
+
+// 页面加载时自动获取测试详情
+onMounted(() => {
+  if (!evaluationId || !projectId) {
+    message.error("缺少必要参数");
+    return;
+  }
+  fetchTestDetails();
+});
 </script>
 
 <style scoped>
@@ -149,26 +232,26 @@ function finishTest() {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* 标题 + 进度条 */
 .header-area {
   margin-bottom: 24px;
 }
+
 .page-title {
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 600;
 }
+
 .step-bar {
   margin-bottom: 16px;
 }
 
-/* 结果区域 */
 .result-area {
   flex: 1;
   overflow: auto;
@@ -199,7 +282,6 @@ function finishTest() {
   color: #666;
 }
 
-/* 统计卡片 */
 .result-stats {
   margin-bottom: 24px;
 }
@@ -221,20 +303,14 @@ function finishTest() {
   color: #52c41a;
 }
 
-.stat-value.error {
-  color: #f5222d;
-}
-
 .stat-label {
   color: #666;
 }
 
-/* 图表卡片 */
 .chart-card {
   margin-bottom: 24px;
 }
 
-/* 测试信息卡片 */
 .test-info-card {
   margin-bottom: 24px;
 }
@@ -242,12 +318,30 @@ function finishTest() {
 .chart-container {
   display: flex;
   padding: 16px;
+  align-items: center;
 }
 
-.pie-chart {
+/* 新增和修改的样式 */
+.charts-wrapper {
   display: flex;
-  justify-content: center;
-  flex: 1;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  flex: 3;
+  gap: 20px;
+  padding: 0 10px;
+}
+
+.chart-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.chart-label {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
 }
 
 .chart-info {
@@ -255,6 +349,8 @@ function finishTest() {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding-left: 20px;
+  border-left: 1px solid #f0f0f0;
 }
 
 .info-item {
@@ -267,7 +363,6 @@ function finishTest() {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background-color: #1890ff;
   margin-right: 8px;
 }
 
@@ -288,7 +383,6 @@ function finishTest() {
   font-weight: 600;
 }
 
-/* 底部按钮区域 */
 .footer-area {
   display: flex;
   justify-content: flex-end;
@@ -299,4 +393,24 @@ function finishTest() {
   margin-left: 16px;
   min-width: 100px;
 }
-</style> 
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .chart-container {
+    flex-direction: column;
+  }
+
+  .charts-wrapper {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .chart-info {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #f0f0f0;
+    padding-left: 0;
+    padding-top: 20px;
+  }
+}
+</style>
