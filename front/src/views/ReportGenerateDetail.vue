@@ -25,6 +25,8 @@
     <!-- 底部操作 -->
     <div class="footer-area">
       <a-button type="primary" @click="goNext">下一步</a-button>
+      <a-button type="default" @click="downloadReport">下载报告</a-button>
+      <!-- 下载按钮 -->
     </div>
   </div>
 </template>
@@ -59,6 +61,18 @@ onMounted(() => {
 // 返回上一页
 function goNext() {
   router.push(`/project/${route.params.projectId}/report-manage`);
+}
+
+// 下载报告
+function downloadReport() {
+  const reportDetail = route.query.reportDetail || "未提供报告内容";
+  const blob = new Blob([reportDetail], {
+    type: "text/plain;charset=utf-8",
+  });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `报告_${route.params.projectId}.txt`; // 根据项目 ID 设置下载的文件名
+  link.click();
 }
 </script>
 

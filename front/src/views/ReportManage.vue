@@ -113,7 +113,7 @@ function onSearch(val) {
 
 // 进入报告详情
 function goToReportDetail(report) {
-  router.push(`/project/report-detail/${report.id}`);
+  router.push(`/project/${route.params.projectId}/report-detail/${report.id}`);
 }
 
 // 编辑报告

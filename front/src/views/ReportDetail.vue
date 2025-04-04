@@ -5,6 +5,7 @@
     <!-- 渲染的报告内容 -->
     <div v-html="renderedReportDetail" class="report-content"></div>
 
+    <a-button @click="downloadReport" class="download-btn">下载报告</a-button>
     <a-button @click="goBack" class="back-btn">返回</a-button>
   </div>
 </template>
@@ -53,6 +54,17 @@ onMounted(async () => {
 function goBack() {
   router.go(-1);
 }
+
+// 下载报告
+function downloadReport() {
+  const blob = new Blob([reportDetail.value], {
+    type: "text/plain;charset=utf-8",
+  });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `报告_${reportId}.txt`; // 可以根据需要更改下载的文件名
+  link.click();
+}
 </script>
 
 <style scoped>
@@ -78,6 +90,10 @@ function goBack() {
   overflow-y: auto;
   white-space: pre-wrap; /* 保持换行 */
   word-wrap: break-word; /* 长单词自动换行 */
+}
+
+.download-btn {
+  margin-top: 20px;
 }
 
 .back-btn {
