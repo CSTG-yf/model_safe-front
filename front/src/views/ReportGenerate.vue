@@ -14,29 +14,29 @@
     <!-- 测试卡片选择区域 -->
     <a-row gutter="16" class="card-grid">
       <a-col
-          v-for="test in currentPageData"
-          :key="test.id"
-          :span="8"
-          :xs="24"
-          :sm="12"
-          :md="8"
-          :lg="8"
+        v-for="test in currentPageData"
+        :key="test.id"
+        :span="8"
+        :xs="24"
+        :sm="12"
+        :md="8"
+        :lg="8"
       >
         <a-card class="test-card" hoverable>
           <div class="card-top">
             <ExperimentOutlined class="card-icon" />
             <div class="card-info">
               <div class="card-title">{{ test.name }}</div>
-              <div class="card-time">测试时间：{{ test.time }}</div>
+              <div class="card-time">测试时间：2024-10-10</div>
             </div>
           </div>
           <div class="card-actions">
-            <a-checkbox
-                :checked="selectedIds.includes(test.id)"
-                @change="toggleSelect(test.id)"
+            <a-radio
+              :checked="selectedId === test.id"
+              @change="toggleSelect(test.id)"
             >
               选择
-            </a-checkbox>
+            </a-radio>
           </div>
         </a-card>
       </a-col>
@@ -45,65 +45,99 @@
     <!-- 底部分页与操作 -->
     <div class="footer-area">
       <a-pagination
-          :page-size="pageSize"
-          :total="testList.length"
-          :current="currentPage"
-          @change="onPageChange"
+        :page-size="pageSize"
+        :total="testList.length"
+        :current="currentPage"
+        @change="onPageChange"
       />
-      <a-button type="primary" class="next-btn" @click="goNextStep">下一步</a-button>
+      <a-button type="primary" class="next-btn" @click="goNextStep"
+        >下一步</a-button
+      >
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { ExperimentOutlined } from '@ant-design/icons-vue'
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { message } from "ant-design-vue";
+import axios from "axios";
+import { ExperimentOutlined } from "@ant-design/icons-vue";
+import { useRoute } from "vue-router";
+import { useCounterStore } from "@/stores/counterStore.js";
 
-// 模拟测试列表数据
-const testList = ref([
-  { id: 1, name: '鲁棒性测试', time: '2024-10-10' },
-  { id: 2, name: '逻辑推理测试', time: '2024-10-12' },
-  { id: 3, name: '语言能力测试', time: '2024-10-13' },
-  { id: 4, name: '多模态融合测试', time: '2024-10-14' },
-  { id: 5, name: '阅读理解测试', time: '2024-10-15' },
-  { id: 6, name: '指令跟随测试', time: '2024-10-16' }
-])
+const route = useRoute();
+const counterStore = useCounterStore();
 
-// 分页相关
-const pageSize = 6
-const currentPage = ref(1)
+// 存储测试列表
+const testList = ref([]);
+
+// 当前页相关
+const pageSize = 9;
+const currentPage = ref(1);
 
 const currentPageData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return testList.value.slice(start, start + pageSize)
-})
+  const start = (currentPage.value - 1) * pageSize;
+  return testList.value.slice(start, start + pageSize);
+});
 
 function onPageChange(page) {
-  currentPage.value = page
+  currentPage.value = page;
 }
 
-// 多选处理
-const selectedIds = ref([])
+// 存储选中的ID
+const selectedId = ref(null);
 
+// 选择卡片
 function toggleSelect(id) {
-  if (selectedIds.value.includes(id)) {
-    selectedIds.value = selectedIds.value.filter(i => i !== id)
-  } else {
-    selectedIds.value.push(id)
+  selectedId.value = id;
+}
+
+const router = useRouter();
+
+// 下一步跳转
+function goNextStep() {
+  if (!selectedId.value) {
+    message.warning("请至少选择一个测试！");
+    return;
+  }
+  console.log("选中的测试ID:", selectedId.value);
+  // 跳转到下一个页面，并将选中的ID作为参数传递
+  router.push({
+    path: `/project/${route.params.projectId}/report-generate-params`,
+    query: { testId: selectedId.value },
+  });
+}
+
+// 获取评估数据
+async function fetchEvalResults() {
+  try {
+    const response = await axios.get(
+      "http://localhost:8000/api/model-evaluation/overall-results/",
+      {
+        params: { project_id: route.params.projectId }, // 假设项目ID为6
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`, // 用实际的token替换
+        },
+      }
+    );
+    console.log(response.data);
+    // 从接口结果中提取id和name
+    testList.value = response.data.results.map((result) => ({
+      id: result.id,
+      name: result.name,
+    }));
+    console.log(testList.value);
+  } catch (error) {
+    console.error("获取评估数据失败:", error);
+    message.error("获取评估数据失败");
   }
 }
 
-const router = useRouter()
-function goNextStep() {
-  if (!selectedIds.value.length) {
-    alert('请至少选择一个测试！')
-    return
-  }
-  console.log('选中的测试ID:', selectedIds.value)
-  // 跳转到下一步选择参数界面
-  router.push('/project/report-generate-params')
-}
+// 初始化
+onMounted(() => {
+  fetchEvalResults();
+});
 </script>
 
 <style scoped>
@@ -111,7 +145,7 @@ function goNextStep() {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 /* 顶部区域 */

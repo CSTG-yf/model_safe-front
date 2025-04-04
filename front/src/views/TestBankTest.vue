@@ -3,7 +3,6 @@
     <!-- 顶部标题 + 进度条 -->
     <div class="header-area">
       <h2 class="page-title">题库测试</h2>
-      <!-- 步骤条：共3步，这里处于第1步 -->
       <a-steps :current="0" class="step-bar">
         <a-step title="选择题库" />
         <a-step title="进行测试" />
@@ -14,31 +13,30 @@
     <!-- 网格卡片 -->
     <Row gutter="16" class="card-grid">
       <Col
-          v-for="(bank, index) in currentPageData"
-          :key="index"
-          :span="8"
-          :xs="24"
-          :sm="12"
-          :md="8"
-          :lg="8"
+        v-for="(bank, index) in currentPageData"
+        :key="index"
+        :span="8"
+        :xs="24"
+        :sm="12"
+        :md="8"
+        :lg="8"
       >
         <Card class="testbank-card" hoverable>
           <div class="card-top">
             <DatabaseOutlined class="card-icon" />
             <div class="card-info">
-              <div class="card-title">{{ bank.name }}</div>
-              <div class="card-desc">{{ bank.desc }}</div>
+              <div class="card-title">{{ bank.exam_title }}</div>
+              <div class="card-desc">{{ bank.description }}</div>
             </div>
           </div>
           <div class="card-actions">
             <a-button
-                type="primary"
-                size="small"
-                @click="selectBank(bank)"
-                :disabled="isSelected(bank.id)"
+              type="primary"
+              size="small"
+              @click="selectBank(bank)"
+              :disabled="isSelected(bank.question_bank_id)"
             >
-              <!-- 若已选该题库则显示"已选择"，否则显示"选择" -->
-              {{ isSelected(bank.id) ? '已选择' : '选择' }}
+              {{ isSelected(bank.question_bank_id) ? "已选择" : "选择" }}
             </a-button>
           </div>
         </Card>
@@ -48,10 +46,10 @@
     <!-- 分页 + 下一步按钮 -->
     <div class="footer-area">
       <a-pagination
-          :page-size="pageSize"
-          :total="testBanks.length"
-          :current="currentPage"
-          @change="onPageChange"
+        :page-size="pageSize"
+        :total="testBanks.length"
+        :current="currentPage"
+        @change="onPageChange"
       />
       <a-button type="primary" class="next-btn" @click="goNextStep">
         下一步
@@ -61,72 +59,123 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { Row, Col, Card, Button, Steps, Pagination } from 'ant-design-vue'
-import { DatabaseOutlined } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from "vue";
+import {
+  Row,
+  Col,
+  Card,
+  Button,
+  Steps,
+  Pagination,
+  message,
+} from "ant-design-vue";
+import { DatabaseOutlined } from "@ant-design/icons-vue";
+import { useRouter, useRoute } from "vue-router";
+import axios from "axios";
+import { useCounterStore } from "@/stores/counterStore";
 
-const router = useRouter()
+const router = useRouter();
+const route = useRoute();
+const counterStore = useCounterStore();
 
-/*
-  模拟题库数据，每行3个卡片，分页
-  id 用于区分单选
-*/
-const testBanks = ref([
-  { id: 1, name: '基础数学题库', desc: '包含基础代数和几何题目' },
-  { id: 2, name: '高级英语题库', desc: '词汇、语法和阅读理解' },
-  { id: 3, name: '物理力学题库', desc: '牛顿力学和动力学' },
-  { id: 4, name: '化学元素题库', desc: '元素周期表和化学反应' },
-  { id: 5, name: '生物学题库', desc: '细胞结构和遗传学' },
-  { id: 6, name: '计算机科学题库', desc: '算法和数据结构' },
-  { id: 7, name: '历史题库', desc: '世界历史重要事件' },
-  { id: 8, name: '地理题库', desc: '世界地理和自然资源' },
-  { id: 9, name: '文学题库', desc: '经典文学作品和分析' }
-  // ...可更多
-])
+// 获取 project_id
+const projectId = route.params.projectId;
 
-// 每页显示多少条
-const pageSize = 9
-// 当前页
-const currentPage = ref(1)
+// 所有题库数据（接口获取）
+const testBanks = ref([]);
 
-// 只允许单选 => selectedBankId
-const selectedBankId = ref(null)
-
-// 分页后的数据
+// 当前页和分页逻辑
+const pageSize = 9;
+const currentPage = ref(1);
 const currentPageData = computed(() => {
-  // slice 数据
-  const startIndex = (currentPage.value - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  return testBanks.value.slice(startIndex, endIndex)
-})
+  const start = (currentPage.value - 1) * pageSize;
+  return testBanks.value.slice(start, start + pageSize);
+});
 
-// 点击分页
-function onPageChange(page) {
-  currentPage.value = page
-}
-
-// 判断该题库是否被选中
+// 单选题库 ID
+const selectedBankId = ref(null);
 function isSelected(id) {
-  return selectedBankId.value === id
+  return selectedBankId.value === id;
 }
-
-// 点击"选择" => 单选
 function selectBank(bank) {
-  selectedBankId.value = bank.id
+  selectedBankId.value = bank.question_bank_id;
+}
+function onPageChange(page) {
+  currentPage.value = page;
 }
 
-// 点击"下一步"
-function goNextStep() {
-  if (!selectedBankId.value) {
-    // 未选 => 提示
-    alert('请先选择一个题库！')
-    return
+// 获取题库列表
+async function fetchTestBanks() {
+  try {
+    const res = await axios.post(
+      `http://localhost:8000/api/question-bank/${projectId}/search/`,
+      { exam_title: "" },
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (res.data.result === "success") {
+      console.log("获取的题库列表:", res.data.question_banks);
+      testBanks.value = res.data.question_banks;
+    } else {
+      message.error("获取题库失败");
+    }
+  } catch (e) {
+    console.error(e);
+    message.error("请求题库失败");
   }
-  console.log('选中的题库ID=', selectedBankId.value)
-  // 跳转到下一步路由
-  router.push('/project/testbank-test2')
 }
+
+async function goNextStep() {
+  if (!selectedBankId.value) {
+    message.warning("请先选择一个题库");
+    return;
+  }
+
+  try {
+    const res = await axios.post(
+      `http://localhost:8000/api/model-evaluation/create/`,
+      {
+        project_id: parseInt(projectId),
+        question_bank_id: selectedBankId.value,
+        evaluation_name: "自动评测-" + new Date().toLocaleDateString(),
+        evaluation_description: "系统自动创建",
+        model_name: "moonshot-v1-8k",
+        evaluation_model_name: "deepseek-chat",
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (res.data.evaluation_id) {
+      const evaluationId = res.data.evaluation_id;
+      message.success("评测创建成功");
+      console.log("evaluationId:", evaluationId);
+      console.log("selectedBankId:", selectedBankId.value);
+      // 同时传 evaluationId 和 questionBankId
+      router.push(
+        `/project/${projectId}/testbank-test2?evaluationId=${evaluationId}&questionBankId=${selectedBankId.value}`
+      );
+    } else {
+      message.error("创建评测失败");
+    }
+  } catch (err) {
+    console.error(err);
+    message.error("请求失败，无法创建评测");
+  }
+}
+
+// 页面初始化
+onMounted(() => {
+  fetchTestBanks();
+});
 </script>
 
 <style scoped>
@@ -134,10 +183,10 @@ function goNextStep() {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-/* 标题 + 进度条 */
+/* 标题 + 步骤条 */
 .header-area {
   margin-bottom: 16px;
 }
@@ -150,12 +199,10 @@ function goNextStep() {
   margin-bottom: 16px;
 }
 
-/* 卡片网格 */
+/* 卡片列表 */
 .card-grid {
   margin-bottom: 16px;
 }
-
-/* 卡片样式 */
 .testbank-card {
   display: flex;
   flex-direction: column;
@@ -182,14 +229,12 @@ function goNextStep() {
 .card-desc {
   color: #666;
 }
-
-/* 底部操作 */
 .card-actions {
   margin-top: 12px;
   text-align: right;
 }
 
-/* 分页 + 下一步按钮 */
+/* 底部 */
 .footer-area {
   display: flex;
   align-items: center;
@@ -199,4 +244,4 @@ function goNextStep() {
 .next-btn {
   margin-left: auto;
 }
-</style> 
+</style>

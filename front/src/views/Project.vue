@@ -51,12 +51,12 @@
               >
                 题库生成
               </a-menu-item>
-              <a-menu-item
+              <!-- <a-menu-item
                 key="testbank-transform"
                 @click="goPage('testbank-extension')"
               >
                 题库变形扩展
-              </a-menu-item>
+              </a-menu-item> -->
               <a-menu-item
                 key="testbank-manage"
                 @click="goPage('testbank-manage')"

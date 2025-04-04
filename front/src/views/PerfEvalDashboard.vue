@@ -15,17 +15,17 @@
       <div class="progress-circle-container">
         <template v-if="!done">
           <a-progress
-              type="circle"
-              :percent="Math.floor(percent)"
-              :width="300"
-              :stroke-color="color"
-              :format="p => `${p}%`"
+            type="circle"
+            :percent="Math.floor(percent)"
+            :width="300"
+            :stroke-color="color"
+            :format="(p) => `${p}%`"
           />
           <div class="status-text">{{ statusText }}</div>
         </template>
         <template v-else>
           <div class="success-icon">
-            <CheckCircleFilled style="font-size: 160px; color: #52c41a;" />
+            <CheckCircleFilled style="font-size: 160px; color: #52c41a" />
             <div class="success-text">生成完成</div>
           </div>
         </template>
@@ -34,59 +34,67 @@
 
     <!-- 底部操作 -->
     <div class="footer-area">
-      <a-button type="primary" :disabled="!done" @click="goNext">下一步</a-button>
+      <a-button type="primary" :disabled="!done" @click="goNext"
+        >下一步</a-button
+      >
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { CheckCircleFilled } from '@ant-design/icons-vue'
+import { ref, computed, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { CheckCircleFilled } from "@ant-design/icons-vue";
 
-const router = useRouter()
-const percent = ref(0)
-const done = ref(false)
-const statusText = ref('准备生成仪表盘...')
+const router = useRouter();
+const route = useRoute();
+const percent = ref(0);
+const done = ref(false);
+const statusText = ref("准备生成仪表盘...");
+const projectId = route.params.projectId; // 获取路由中的 projectId
 
 const color = computed(() => {
-  if (percent.value < 30) return '#ff4d4f'
-  if (percent.value < 70) return '#faad14'
-  return '#52c41a'
-})
+  if (percent.value < 30) return "#ff4d4f";
+  if (percent.value < 70) return "#faad14";
+  return "#52c41a";
+});
 
 function simulateProgress() {
   let timer = setInterval(() => {
-    let speed = 0.5 + Math.random() * 1
-    percent.value += speed
+    let speed = 0.5 + Math.random() * 1;
+    percent.value += speed;
 
     if (percent.value < 30) {
-      statusText.value = '收集测试数据中...'
+      statusText.value = "收集测试数据中...";
     } else if (percent.value < 70) {
-      statusText.value = '构建模型评估维度...'
+      statusText.value = "构建模型评估维度...";
     } else if (percent.value < 99) {
-      statusText.value = '绘制仪表盘图表...'
+      statusText.value = "绘制仪表盘图表...";
     } else {
-      statusText.value = '完成！'
+      statusText.value = "完成！";
     }
 
     if (percent.value >= 100) {
-      percent.value = 100
-      clearInterval(timer)
-      done.value = true
+      percent.value = 100;
+      clearInterval(timer);
+      done.value = true;
     }
-  }, 150)
+  }, 150);
 }
 
 function goNext() {
-  router.push('/project/perf-eval-result')
+  const evalId = route.query.evalId; // 获取上一个页面传递的 evalId
+  router.push({
+    path: `/project/${projectId}/perf-eval-result`, // 动态构建跳转路径
+    query: { evalId: evalId }, // 传递 evalId 到下一个页面
+  });
 }
 
 onMounted(() => {
   setTimeout(() => {
-    simulateProgress()
-  }, 500)
-})
+    simulateProgress();
+  }, 500);
+});
 </script>
 
 <style scoped>
@@ -94,7 +102,7 @@ onMounted(() => {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   height: 100%;
   display: flex;
   flex-direction: column;

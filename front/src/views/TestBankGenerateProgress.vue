@@ -51,7 +51,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { Steps, Button, Progress } from "ant-design-vue";
 import { CheckCircleFilled } from "@ant-design/icons-vue";
 import { useRouter, useRoute } from "vue-router";
 import { useCounterStore } from "@/stores/counterStore.js";
@@ -63,7 +62,7 @@ const route = useRoute();
 const counterStore = useCounterStore();
 
 // 生成进度
-const generateProgress = ref(0);
+const generateProgress = ref(1); // 从 1% 开始
 // 生成状态文本
 const generateStatus = ref("正在生成题库...");
 // 生成是否完成
@@ -76,23 +75,13 @@ const progressColor = computed(() => {
   return "#52c41a";
 });
 
-// 模拟生成进度
+// 模拟生成进度（动画）
 function startGenerateProgress() {
   let timer = null;
-  let speed = 1;
+  let speed = 1; // 进度条增速
 
   timer = setInterval(() => {
-    // 进度增量随机变化，模拟真实生成进度
-    if (generateProgress.value < 30) {
-      speed = Math.random() * 1 + 0.5;
-    } else if (generateProgress.value < 60) {
-      speed = Math.random() * 0.8 + 0.3;
-    } else if (generateProgress.value < 90) {
-      speed = Math.random() * 0.5 + 0.1;
-    } else {
-      speed = 0.1;
-    }
-
+    // 进度增量，每次加1，模拟一个加载进度
     generateProgress.value += speed;
 
     // 更新状态文本
@@ -110,16 +99,21 @@ function startGenerateProgress() {
     if (generateProgress.value >= 100) {
       clearInterval(timer);
       generateProgress.value = 100;
-      generateCompleted.value = true;
-      generateStatus.value = "题库生成已完成!";
     }
-  }, 150);
+  }, 100); // 每100ms更新一次进度
 }
 
 // 跳转到下一步
 function goNextStep() {
   if (generateCompleted.value) {
-    router.push("/project/testbank-generate-complete");
+    const projectId = route.params.projectId;
+    const questionBankId = counterStore.questionBankId;
+
+    // 跳转并传递 questionBankId 作为查询参数
+    router.push({
+      path: `/project/${projectId}/testbank-generate-complete`,
+      query: { questionBankId }, // 将 questionBankId 作为查询参数传递
+    });
   }
 }
 
@@ -134,6 +128,9 @@ onMounted(async () => {
   }
 
   try {
+    // 启动进度条动画
+    startGenerateProgress();
+
     // 发送题库生成请求
     const response = await axios({
       method: "post",
@@ -151,18 +148,16 @@ onMounted(async () => {
       },
     });
 
-    if (
-      response.data.status === 200 &&
-      response.data.data.status === "success"
-    ) {
-      // 启动进度条动画
-      startGenerateProgress();
-      // 标记生成完成，使下一步按钮可用
-      setTimeout(() => {
-        generateCompleted.value = true;
-      }, 100);
+    // 打印接收到的响应数据，方便调试
+    console.log("后端响应数据:", response.data);
+
+    // 修改判断条件以符合后端返回数据
+    if (response.data.status === "success") {
+      // 更新生成完成状态
+      generateCompleted.value = true;
+      generateStatus.value = "题库生成已完成!";
     } else {
-      message.error("题库生成失败");
+      message.error("题库生成失败：" + response.data.message);
     }
   } catch (error) {
     console.error("题库生成请求失败:", error);

@@ -3,7 +3,7 @@
     <!-- 顶部标题区域 -->
     <div class="header-area">
       <h2 class="page-title">测试审核</h2>
-      <p class="page-subtitle">测试ID: {{ testId }}</p>
+      <p class="page-subtitle">测试ID: {{ evaluationId }}</p>
     </div>
 
     <!-- 内容区域 -->
@@ -13,19 +13,22 @@
         <a-row :gutter="16">
           <a-col :span="8">
             <a-card class="stat-card">
-              <div class="stat-value">{{ reviewData.length }}</div>
-              <div class="stat-label">题目总数</div>
+              <div class="stat-value">{{ testDetails.toxicity_accuracy }}</div>
+              <div class="stat-label">毒性评分</div>
             </a-card>
           </a-col>
           <a-col :span="8">
             <a-card class="stat-card">
-              <div class="stat-value">{{ getReviewedCount() }}</div>
-              <div class="stat-label">已审核题目</div>
+              <div class="stat-value">
+                {{ testDetails.hallucination_accuracy }}
+              </div>
+              <div class="stat-label">幻觉评分</div>
             </a-card>
           </a-col>
+
           <a-col :span="8">
             <a-card class="stat-card">
-              <div class="stat-value">{{ getAverageScore() }}</div>
+              <div class="stat-value">{{ testDetails.average_score }}</div>
               <div class="stat-label">平均得分</div>
             </a-card>
           </a-col>
@@ -34,25 +37,39 @@
 
       <!-- 表格区域 -->
       <a-card class="table-card" title="测试审核内容">
-        <a-table 
-          :columns="columns" 
-          :data-source="reviewData" 
-          row-key="id" 
+        <a-table
+          :columns="columns"
+          :data-source="testDetails.records"
+          row-key="record_id"
           :pagination="{ pageSize: 5 }"
           bordered
         >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'actions'">
               <a-space>
-                <a-button type="link" @click="openReview(record)">审核</a-button>
-                <a-button type="link" danger @click="deleteQuestion(record.id)">删除</a-button>
+                <a-button type="link" @click="openReview(record)"
+                  >审核</a-button
+                >
+                <a-button
+                  type="link"
+                  danger
+                  @click="deleteQuestion(record.record_id)"
+                  >删除</a-button
+                >
               </a-space>
             </template>
             <template v-if="column.key === 'content'">
-              <div class="truncated-content">{{ record.content.slice(0, 100) }}...</div>
+              <div class="truncated-content">
+                {{ record.input_text.question.slice(0, 100) }}...
+              </div>
+            </template>
+            <template v-if="column.key === 'type'">
+              <div>{{ record.input_text.question_type }}</div>
             </template>
             <template v-if="column.key === 'score'">
-              <a-tag :color="getScoreColor(record.score)">{{ record.score }}</a-tag>
+              <a-tag :color="getScoreColor(record.score)">{{
+                record.score
+              }}</a-tag>
             </template>
           </template>
         </a-table>
@@ -61,57 +78,52 @@
 
     <!-- 审核弹窗 -->
     <a-modal
-        v-model:open="reviewVisible"
-        title="题目审核"
-        ok-text="确认"
-        cancel-text="取消"
-        @ok="saveReview"
-        width="80%"
-        body-style="max-height: 70vh; overflow-y: auto; padding: 24px;"
+      v-model:open="reviewVisible"
+      title="题目审核"
+      ok-text="确认"
+      cancel-text="取消"
+      @ok="saveReview"
+      width="80%"
+      body-style="max-height: 70vh; overflow-y: auto; padding: 24px;"
     >
-      <!-- 题目信息区 -->
+      <!-- 题目信息 -->
       <div class="review-section">
         <h3 class="section-title">题目信息</h3>
-        <p><strong>题目：</strong>{{ currentItem.content }}</p>
-        <p><strong>题型：</strong>{{ currentItem.type }}</p>
-        <template v-if="currentItem.type === '选择题'">
+        <p><strong>题目：</strong>{{ currentItem.input_text.question }}</p>
+        <p><strong>题型：</strong>{{ currentItem.input_text.question_type }}</p>
+        <!-- 如果题型包含“选择”，则显示选项 -->
+        <template v-if="currentItem.input_text.question_type.includes('选择')">
           <p><strong>选项：</strong></p>
           <ul class="option-list">
-            <li v-for="(opt, i) in currentItem.options" :key="i">
-              {{ String.fromCharCode(65 + i) }}. {{ opt }}
+            <li
+              v-for="(opt, index) in currentItem.input_text.options"
+              :key="index"
+            >
+              {{ String.fromCharCode(65 + index) }}. {{ opt }}
             </li>
           </ul>
         </template>
       </div>
 
-      <!-- 回答信息区 -->
+      <!-- 回答信息 -->
       <div class="review-section">
         <h3 class="section-title">回答信息</h3>
         <p><strong>AI回答：</strong></p>
-        <div class="answer-block">{{ currentItem.aiAnswer }}</div>
-
-        <p><strong>标准答案：</strong></p>
-        <div class="answer-block">{{ currentItem.standardAnswer }}</div>
+        <div class="answer-block">{{ currentItem.output_text }}</div>
+        <p><strong>正确答案：</strong>{{ currentItem.input_text.answer }}</p>
       </div>
 
-      <!-- 得分操作区 -->
+      <!-- 得分操作 -->
       <div class="review-section">
         <h3 class="section-title">评分</h3>
         <a-form layout="vertical">
           <a-form-item label="得分">
             <a-input-number
-                v-model:value="currentItem.score"
-                :min="0"
-                :max="100"
-                :precision="1"
-                style="width: 200px"
-            />
-          </a-form-item>
-          <a-form-item label="评分说明">
-            <a-textarea
-                v-model:value="currentItem.scoreComment"
-                placeholder="请输入评分理由..."
-                rows="3"
+              v-model:value="currentItem.score"
+              :min="0"
+              :max="5"
+              :precision="1"
+              style="width: 200px"
             />
           </a-form-item>
         </a-form>
@@ -129,131 +141,246 @@
 </template>
 
 <script setup>
-import { useRoute, useRouter } from 'vue-router'
-import { ref, reactive, computed } from 'vue'
-import { message } from 'ant-design-vue'
+import { useRoute, useRouter } from "vue-router";
+import { ref, reactive, computed, onMounted } from "vue";
+import { message } from "ant-design-vue";
+import axios from "axios";
+import { useCounterStore } from "@/stores/counterStore";
 
-const route = useRoute()
-const router = useRouter()
-const testId = route.params.testId
+// 从路由中获取参数，这里 evaluation_id 是通过 query 传入的
+const route = useRoute();
+const router = useRouter();
+const evaluationId = route.query.evaluation_id;
+const counterStore = useCounterStore();
 
-const longText = '这是一个很长的文本，用于测试弹窗在面对大段内容时的布局与可读性表现。'.repeat(10) // 每段30字，重复10次 ≈ 300字
+// 存储测试详情（包含统计信息及记录列表）
+const testDetails = ref({
+  total_samples: 0,
+  average_score: 0,
+  hallucination_accuracy: 0,
+  toxicity_accuracy: 0,
+  records: [],
+});
 
-const reviewData = ref([
-  {
-    id: 1,
-    content: `题目内容：${longText}`,
-    type: '选择题',
-    options: ['选项A内容很长很长很长很长很长很长很长', '选项B内容也很长很长很长很长很长', '选项C略短', '选项D也不短'],
-    aiAnswer: `AI回答内容：${longText}`,
-    standardAnswer: `标准答案内容：${longText}`,
-    score: 85,
-    scoreComment: ''
-  },
-  {
-    id: 2,
-    content: `题目内容：${longText}`,
-    type: '简答题',
-    options: [],
-    aiAnswer: `AI回答内容：${longText}`,
-    standardAnswer: `标准答案内容：${longText}`,
-    score: 0,
-    scoreComment: ''
+// 获取测试详情数据
+async function fetchTestDetails() {
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/model-evaluation/${evaluationId}/detail/`,
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.data.message === "评测详情获取成功") {
+      testDetails.value = response.data.data;
+    } else {
+      message.error("获取测试详情失败");
+    }
+  } catch (error) {
+    console.error(error);
+    message.error("获取测试详情失败");
   }
-])
+}
 
-// 获取已审核题目数量
+// 计算已审核题目数量
 function getReviewedCount() {
-  return reviewData.value.filter(item => item.score > 0).length
+  return testDetails.value.records.filter((item) => item.score > 0).length;
 }
 
-// 获取平均分
-function getAverageScore() {
-  const scores = reviewData.value.filter(item => item.score > 0).map(item => item.score)
-  if (scores.length === 0) return 0
-  return (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)
-}
-
-// 根据分数获取颜色
+// 根据分数获取颜色（这里可以根据实际情况调整颜色映射）
 function getScoreColor(score) {
-  if (score === 0) return 'default'
-  if (score < 60) return 'error'
-  if (score < 80) return 'warning'
-  return 'success'
+  if (score === 0) return "default";
+  if (score < 60) return "error";
+  if (score < 80) return "warning";
+  return "success";
 }
 
+// 表格列配置，其中通过 render 方法展示题目和题型
 const columns = [
-  { title: '题号', dataIndex: 'id', key: 'id', width: 100 },
+  { title: "题号", dataIndex: "record_id", key: "record_id", width: 100 },
   {
-    title: '题目',
-    dataIndex: 'content',
-    key: 'content'
+    title: "题目",
+    dataIndex: "input_text",
+    key: "content",
+    render: (input_text) => input_text.question,
   },
-  { title: '题型', dataIndex: 'type', key: 'type', width: 100 },
-  { title: '得分', dataIndex: 'score', key: 'score', width: 100 },
-  { title: '操作', key: 'actions', width: 150 }
-]
+  {
+    title: "题型",
+    dataIndex: "input_text",
+    key: "type",
+    render: (input_text) => input_text.question_type,
+  },
+  { title: "得分", dataIndex: "score", key: "score", width: 100 },
+  { title: "操作", key: "actions", width: 150 },
+];
 
-// 弹窗控制
-const reviewVisible = ref(false)
+// 当前审核题目详情的存储对象
 const currentItem = reactive({
-  id: null,
-  content: '',
-  type: '',
-  aiAnswer: '',
-  standardAnswer: '',
-  options: [],
+  record_id: null,
+  input_text: {
+    question: "",
+    question_type: "",
+    options: [],
+    answer: "",
+    scoring_criteria: {},
+  },
+  output_text: "",
   score: 0,
-  scoreComment: ''
-})
+  scoreComment: "",
+});
 
-// 打开审核弹窗
-function openReview(item) {
-  Object.assign(currentItem, item)
-  reviewVisible.value = true
+// 点击审核按钮时，根据 record_id 请求题目详情接口，然后填充弹窗内容
+async function openReview(item) {
+  try {
+    const response = await axios.get(
+      `http://localhost:8000/api/model-evaluation/records/${item.record_id}/`,
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    // 假设接口返回状态码200且返回数据正确
+    if (response.data) {
+      const data = response.data;
+      currentItem.record_id = data.record_id;
+      currentItem.input_text = data.input_text;
+      currentItem.output_text = data.output_text;
+      currentItem.score = data.score;
+      currentItem.scoreComment = "";
+      reviewVisible.value = true;
+    } else {
+      message.error("获取题目详情失败");
+    }
+  } catch (error) {
+    console.error(error);
+    message.error("获取题目详情失败");
+  }
 }
 
-// 保存评分
-function saveReview() {
-  const idx = reviewData.value.findIndex(q => q.id === currentItem.id)
+// 保存评分操作
+// 保存评分操作
+async function saveReview() {
+  const idx = testDetails.value.records.findIndex(
+    (q) => q.record_id === currentItem.record_id
+  );
   if (idx !== -1) {
-    reviewData.value[idx].score = currentItem.score
-    reviewData.value[idx].scoreComment = currentItem.scoreComment
-    message.success('审核已保存')
+    // 更新本地记录中的分数
+    testDetails.value.records[idx].score = currentItem.score;
+    // 保存评分说明
+    testDetails.value.records[idx].scoreComment = currentItem.scoreComment;
+
+    // 向后端发送更新请求
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/api/model-evaluation/records/${currentItem.record_id}/`,
+        { score: currentItem.score },
+        {
+          headers: {
+            Authorization: `Bearer ${counterStore.access}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.data != null) {
+        message.success("分数已成功修改");
+      } else {
+        message.error("修改分数失败");
+      }
+    } catch (error) {
+      console.error(error);
+      message.error("修改分数失败");
+    }
   }
-  reviewVisible.value = false
+  reviewVisible.value = false;
 }
 
 // 删除题目
-function deleteQuestion(id) {
-  reviewData.value = reviewData.value.filter(q => q.id !== id)
-  message.success('题目已删除')
+// 删除题目
+async function deleteQuestion(record_id) {
+  try {
+    const response = await axios.delete(
+      `http://localhost:8000/api/model-evaluation/records/${record_id}/`,
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    // 根据接口文档，成功删除返回204状态码
+    if (response.status === 204) {
+      // 从本地记录中删除该题目
+      testDetails.value.records = testDetails.value.records.filter(
+        (q) => q.record_id !== record_id
+      );
+      message.success("题目删除成功");
+    } else {
+      message.error("删除题目失败");
+    }
+  } catch (error) {
+    console.error(error);
+    message.error("删除题目失败");
+  }
 }
 
-// 返回测试管理
+// 返回测试管理页面
 function goToTestManage() {
-  router.push('/project/test-manage')
+  const projectId = route.params.projectId;
+  router.push(`/project/${projectId}/test-manage`); // 完成审核后跳转到测试管理页面
 }
 
-// 完成审核
-function completeReview() {
-  message.success('审核已完成')
-  router.push('/project/test-manage')
+// 完成审核后返回测试管理页面
+async function completeReview() {
+  try {
+    const response = await axios.put(
+      `http://localhost:8000/api/model-evaluation/${evaluationId}/review/`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (response.status === 200) {
+      message.success("审核已完成");
+      const projectId = route.params.projectId;
+      router.push(`/project/${projectId}/test-manage`); // 完成审核后跳转到测试管理页面
+    } else {
+      message.error("完成审核失败");
+    }
+  } catch (error) {
+    console.error(error);
+    message.error("完成审核失败");
+  }
 }
+
+// 弹窗显示控制
+const reviewVisible = ref(false);
+
+// 页面加载时自动获取测试详情
+onMounted(() => {
+  fetchTestDetails();
+});
 </script>
 
 <style scoped>
+/* 样式部分与原代码保持一致 */
 .test-review-container {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* 标题区域 */
 .header-area {
   margin-bottom: 24px;
 }
@@ -268,13 +395,11 @@ function completeReview() {
   font-size: 16px;
 }
 
-/* 内容区域 */
 .content-area {
   flex: 1;
   overflow: auto;
 }
 
-/* 统计卡片 */
 .stats-area {
   margin-bottom: 24px;
 }
@@ -296,7 +421,6 @@ function completeReview() {
   color: #666;
 }
 
-/* 表格卡片 */
 .table-card {
   margin-bottom: 24px;
 }
@@ -308,7 +432,6 @@ function completeReview() {
   max-width: 400px;
 }
 
-/* 审核弹窗样式 */
 .review-section {
   margin-bottom: 24px;
   padding: 16px;
@@ -339,7 +462,6 @@ function completeReview() {
   margin: 0;
 }
 
-/* 底部按钮区域 */
 .footer-area {
   display: flex;
   justify-content: flex-end;

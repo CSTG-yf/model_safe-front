@@ -14,6 +14,11 @@
       <a-form-item label="选择 AI 模型">
         <a-select v-model="aiModelName">
           <a-select-option value="gpt-4">GPT-4</a-select-option>
+          <a-select-option value="Chat-LLM">Chat-LLM</a-select-option>
+          <a-select-option value="Qwen2.5Max">Qwen2.5Max</a-select-option>
+          <a-select-option value="Deepseek-v3">Deepseek-v3</a-select-option>
+          <a-select-option value="kimi">kimi</a-select-option>
+          <a-select-option value="豆包">豆包</a-select-option>
         </a-select>
       </a-form-item>
 
@@ -26,28 +31,28 @@
 </template>
 
 <script setup>
-import {ref} from "vue";
-import {useCounterStore} from '@/stores/counterStore.js'
-import {useRouter} from 'vue-router'
-import axios from 'axios'
+import { ref } from "vue";
+import { useCounterStore } from "@/stores/counterStore.js";
+import { useRouter } from "vue-router";
+import axios from "axios";
 
-const counterStore = useCounterStore()
-const loading = ref(false) // 加载状态
-const description = ref('') // 输入的模型描述
-const aiModelName = ref('gpt-4') // 选择的 AI 模型
-const router = useRouter()
+const counterStore = useCounterStore();
+const loading = ref(false); // 加载状态
+const description = ref(""); // 输入的模型描述
+const aiModelName = ref("gpt-4"); // 选择的 AI 模型
+const router = useRouter();
 
 // 发送 API 请求
 async function createModel() {
   console.log("当前 access_token:", counterStore.access);
 
   if (!counterStore.projectName.trim()) {
-    console.warn('项目名称不能为空！')
-    return
+    console.warn("项目名称不能为空！");
+    return;
   }
   if (!counterStore.access) {
-    console.warn('缺少 Access Token，请先赋值！')
-    return
+    console.warn("缺少 Access Token，请先赋值！");
+    return;
   }
 
   loading.value = true; // 开始加载
@@ -56,33 +61,32 @@ async function createModel() {
     name: counterStore.projectName, // 从 Pinia 读取项目名称
     description: description.value, // 输入的描述
     ai_model_name: aiModelName.value, // 选择的模型
-  }
+  };
 
   try {
     const response = await axios.post(
-        'http://127.0.0.1:8000/api/projects/', // 你的 API 地址
-        requestData,
-        {
-          headers: {
-            Authorization: `Bearer ${counterStore.access}`, // 使用 Pinia 里的 Token
-            'Content-Type': 'application/json',
-          },
-        }
-    )
+      "http://127.0.0.1:8000/api/projects/", // 你的 API 地址
+      requestData,
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`, // 使用 Pinia 里的 Token
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    console.log('API 响应:', response.data)
+    console.log("API 响应:", response.data);
 
     if (response.data.result === "success") {
       const projectId = response.data.project.id;
       counterStore.setProjectId(projectId); // 存入 Pinia
-      console.log('项目创建成功，存入 projectId:', projectId);
+      console.log("项目创建成功，存入 projectId:", projectId);
     } else {
-      console.error('项目创建失败:', response.data.message);
+      console.error("项目创建失败:", response.data.message);
     }
-    router.push('/home/newproject/step3');
-
+    router.push("/home/newproject/step3");
   } catch (error) {
-    console.error('API 请求失败:', error.response?.data || error.message);
+    console.error("API 请求失败:", error.response?.data || error.message);
   } finally {
     loading.value = false; // 结束加载
   }

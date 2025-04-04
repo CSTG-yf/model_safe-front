@@ -715,7 +715,7 @@ async function startWorkflow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: projectId.value,
-          model_name: modelName.value,
+          model_name: modelName.value.replace(/-/g, ""),
           ev_time: formattedDateTime.value,
           mode: route.query.method,
         }),

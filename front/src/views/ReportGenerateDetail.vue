@@ -17,42 +17,48 @@
       <p>生成时间：{{ reportTime }}</p>
     </div>
 
-    <!-- PDF 预览区域 -->
-    <div class="pdf-preview">
-      <iframe :src="pdfUrl" class="pdf-frame"></iframe>
+    <!-- Markdown 内容区域 -->
+    <div class="markdown-content">
+      <div v-html="markdownHtml" class="markdown-rendered"></div>
     </div>
 
     <!-- 底部操作 -->
     <div class="footer-area">
-      <a-button type="default" @click="goBack">返回</a-button>
-      <a-button type="primary" class="export-btn" @click="exportReport">导出报告</a-button>
+      <a-button type="primary" @click="goNext">下一步</a-button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { marked } from "marked"; // 导入 marked 库
+import { format } from "date-fns";
 
-const router = useRouter()
+const router = useRouter();
+const route = useRoute();
 
-// 模拟报告数据
-const reportTitle = ref('模型评估报告 - 2024Q1')
-const reportTime = ref('2024-06-15 10:00')
+// 状态变量
+const reportTitle = ref("AI模型评估报告");
+const reportTime = ref(format(new Date(), "yyyy-MM-dd HH:mm:ss"));
+const markdownHtml = ref("");
 
-// 预览 PDF
-const pdfUrl = ref('/static/sample-report.pdf') // 替换为真实 PDF 路径
+// 从 URL 查询参数中获取 markdown 内容
+onMounted(() => {
+  const reportDetail = route.query.reportDetail;
 
-// 返回
-function goBack() {
-  router.push('/project/report-generate-progress')
-}
+  // 如果有 reportDetail 参数，转换它为 HTML
+  if (reportDetail) {
+    // 将 Markdown 内容转换为 HTML
+    markdownHtml.value = marked(reportDetail);
+  } else {
+    markdownHtml.value = "<p>未提供报告内容。</p>";
+  }
+});
 
-// 导出报告
-function exportReport() {
-  message.success('报告已导出！')
-  // 这里可以触发文件下载，如 window.open(pdfUrl.value, '_blank')
+// 返回上一页
+function goNext() {
+  router.push(`/project/${route.params.projectId}/report-manage`);
 }
 </script>
 
@@ -60,61 +66,65 @@ function exportReport() {
 .report-detail-container {
   background: #fff;
   padding: 24px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
 .header-area {
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
+
 .page-title {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font-size: 24px;
   font-weight: 600;
+  color: #1f1f1f;
 }
+
 .step-bar {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 /* 报告信息 */
 .report-info {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-radius: 6px;
 }
+
 .report-info h3 {
-  margin: 0;
+  margin: 0 0 8px 0;
   font-size: 20px;
+  color: #1f1f1f;
 }
+
 .report-info p {
   margin: 4px 0;
   color: #666;
 }
 
-/* PDF 预览 */
-.pdf-preview {
+/* Markdown 内容 */
+.markdown-content {
   flex: 1;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  overflow-y: auto;
 }
-.pdf-frame {
-  width: 100%;
-  height: 500px;
-  border: none;
+
+.markdown-rendered {
+  white-space: pre-wrap; /* 保持换行 */
+  word-wrap: break-word; /* 长单词自动换行 */
 }
 
 /* 底部操作 */
 .footer-area {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
-}
-.export-btn {
-  margin-left: 12px;
+  margin-top: 20px;
 }
 </style>

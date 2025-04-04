@@ -3,7 +3,6 @@
     <!-- 顶部标题 + 进度条 -->
     <div class="header-area">
       <h2 class="page-title">测试执行</h2>
-      <!-- 步骤条：共3步，这里处于第2步 -->
       <a-steps :current="1" class="step-bar">
         <a-step title="选择题库" />
         <a-step title="进行测试" />
@@ -14,7 +13,6 @@
     <!-- 中间测试进度显示区域 -->
     <div class="test-progress-area">
       <div class="progress-circle-container">
-        <!-- 测试中显示进度圈，测试完成显示成功图标 -->
         <template v-if="!testCompleted">
           <a-progress
             type="circle"
@@ -22,13 +20,13 @@
             :width="320"
             :stroke-color="progressColor"
             :stroke-width="10"
-            :format="percent => `${percent}%`"
+            :format="(percent) => `${percent}%`"
           />
           <div class="progress-status">{{ testStatus }}</div>
         </template>
         <template v-else>
           <div class="success-icon">
-            <CheckCircleFilled style="font-size: 160px; color: #52c41a;" />
+            <CheckCircleFilled style="font-size: 160px; color: #52c41a" />
             <div class="success-text">测试已完成!</div>
           </div>
         </template>
@@ -37,10 +35,10 @@
 
     <!-- 底部操作区域 -->
     <div class="footer-area">
-      <a-button 
-        type="primary" 
-        class="next-btn" 
-        @click="goNextStep" 
+      <a-button
+        type="primary"
+        class="next-btn"
+        @click="goNextStep"
         :disabled="!testCompleted"
       >
         下一步
@@ -50,81 +48,113 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Steps, Button, Progress } from 'ant-design-vue'
-import { CheckCircleFilled } from '@ant-design/icons-vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { CheckCircleFilled } from "@ant-design/icons-vue";
+import axios from "axios";
+import { message } from "ant-design-vue";
+import { useCounterStore } from "@/stores/counterStore";
 
-const router = useRouter()
+const router = useRouter();
+const route = useRoute();
+const counterStore = useCounterStore();
 
-// 测试进度
-const testProgress = ref(0)
-// 测试状态文本
-const testStatus = ref('正在测试中...')
-// 测试是否完成
-const testCompleted = ref(false)
+const evaluationId = route.query.evaluationId;
+const questionBankId = route.query.questionBankId;
 
-// 测试进度颜色
+const testProgress = ref(1);
+const testStatus = ref("正在准备测试环境...");
+const testCompleted = ref(false);
+const backendReady = ref(false);
+
 const progressColor = computed(() => {
-  if (testProgress.value < 30) return '#ff4d4f'
-  if (testProgress.value < 70) return '#faad14'
-  return '#52c41a'
-})
+  if (testProgress.value < 30) return "#ff4d4f";
+  if (testProgress.value < 70) return "#faad14";
+  return "#52c41a";
+});
 
-// 模拟测试进度
+// 进度动画（与题库生成一致）
 function startTestProgress() {
-  let timer = null
-  let speed = 1
+  let timer = null;
+  let speed = 1;
 
   timer = setInterval(() => {
-    // 进度增量随机变化，模拟真实测试进度
+    testProgress.value += speed;
+
     if (testProgress.value < 30) {
-      speed = Math.random() * 1 + 0.5
+      testStatus.value = "正在初始化测试环境...";
     } else if (testProgress.value < 60) {
-      speed = Math.random() * 0.8 + 0.3
+      testStatus.value = "正在执行测试用例...";
     } else if (testProgress.value < 90) {
-      speed = Math.random() * 0.5 + 0.1
+      testStatus.value = "正在分析测试结果...";
     } else {
-      speed = 0.1
+      testStatus.value = "即将完成测试...";
     }
 
-    testProgress.value += speed
-    
-    // 更新状态文本
-    if (testProgress.value < 30) {
-      testStatus.value = '正在初始化测试环境...'
-    } else if (testProgress.value < 60) {
-      testStatus.value = '正在执行测试用例...'
-    } else if (testProgress.value < 90) {
-      testStatus.value = '正在分析测试结果...'
-    } else {
-      testStatus.value = '即将完成测试...'
-    }
-
-    // 当进度达到100%时停止
     if (testProgress.value >= 100) {
-      clearInterval(timer)
-      testProgress.value = 100
-      testCompleted.value = true
-      testStatus.value = '测试已完成!'
+      clearInterval(timer);
+      testProgress.value = 100;
+      if (backendReady.value) {
+        testCompleted.value = true;
+        testStatus.value = "测试已完成!";
+      }
     }
-  }, 150)
+  }, 100);
 }
 
-// 跳转到下一步
-function goNextStep() {
-  if (testCompleted.value) {
-    router.push('/project/testbank-test3')
+// 请求后端启动测试
+async function runTest() {
+  try {
+    const res = await axios.post(
+      `http://localhost:8000/api/model-evaluation/${evaluationId}/run/`,
+      {
+        question_bank_id: parseInt(questionBankId),
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${counterStore.access}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    backendReady.value = true;
+
+    if (testProgress.value >= 100) {
+      testCompleted.value = true;
+      testStatus.value = "测试已完成!";
+    }
+
+    message.success("测试已启动");
+    startTestProgress();
+  } catch (err) {
+    console.error(err);
+    message.error("测试启动失败");
   }
 }
 
-// 页面加载时自动开始测试进度
+function goNextStep() {
+  if (testCompleted.value) {
+    const projectId = route.params.projectId; // 从路由路径中获取 projectId
+
+    // 跳转到下一个界面并传递 evaluationId 和 projectId
+    router.push({
+      path: `/project/${projectId}/testbank-test3`,
+      query: {
+        evaluationId: evaluationId, // 传递评测 ID
+        projectId: projectId, // 传递项目 ID
+      },
+    });
+  }
+}
+
 onMounted(() => {
-  // 延迟半秒开始，提高用户体验
-  setTimeout(() => {
-    startTestProgress()
-  }, 500)
-})
+  if (!evaluationId || !questionBankId) {
+    message.error("缺少必要参数");
+    return;
+  }
+  runTest();
+});
 </script>
 
 <style scoped>
@@ -132,13 +162,11 @@ onMounted(() => {
   background: #fff;
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   height: 100%;
   display: flex;
   flex-direction: column;
 }
-
-/* 标题 + 进度条 */
 .header-area {
   margin-bottom: 40px;
 }
@@ -150,8 +178,6 @@ onMounted(() => {
 .step-bar {
   margin-bottom: 16px;
 }
-
-/* 测试进度区域 */
 .test-progress-area {
   flex: 1;
   display: flex;
@@ -159,40 +185,33 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 40px;
 }
-
 .progress-circle-container {
   text-align: center;
   position: relative;
 }
-
 .progress-status {
   margin-top: 20px;
   font-size: 18px;
   color: #666;
 }
-
 .success-icon {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
-
 .success-text {
   margin-top: 20px;
   font-size: 24px;
   font-weight: 600;
   color: #52c41a;
 }
-
-/* 底部按钮区域 */
 .footer-area {
   display: flex;
   justify-content: flex-end;
   margin-top: auto;
 }
-
 .next-btn {
   min-width: 100px;
 }
-</style> 
+</style>
