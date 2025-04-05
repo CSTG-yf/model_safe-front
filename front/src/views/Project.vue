@@ -220,7 +220,9 @@
 
         <!-- 主内容区：加载子页面 -->
         <a-layout-content class="layout-content">
-          <router-view />
+          <keep-alive>
+            <router-view />
+          </keep-alive>
         </a-layout-content>
       </a-layout>
     </a-layout>

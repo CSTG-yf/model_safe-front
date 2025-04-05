@@ -920,7 +920,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 20px;
   flex: 1;
-  overflow: hidden;
+  overflow: hidden; /* This might be limiting expansion */
+  min-height: 0; /* Add this to allow proper flex shrinking */
 }
 
 .status-card {
@@ -947,6 +948,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0; /* Add this */
 }
 
 .messages-container {
@@ -968,8 +970,22 @@ onBeforeUnmount(() => {
 /* 结果列表样式 */
 .jailbreak-list {
   margin-top: 8px;
-  max-height: 400px; /* 限制高度，启用滚动 */
-  overflow-y: auto; /* 允许垂直滚动 */
+  max-height: none; /* Change from 400px to allow full expansion */
+  height: 100%; /* Add this */
+  overflow-y: auto;
+}
+
+:deep(.results-card .ant-card-body) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0; /* Reduce bottom padding if needed */
+}
+
+:deep(.jailbreak-list .ant-list) {
+  height: 100%;
+  overflow-y: auto;
 }
 
 .result-title-link {
