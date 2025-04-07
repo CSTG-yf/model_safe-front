@@ -4,7 +4,7 @@
     <div class="header-area">
       <h2 class="page-title">生成报告</h2>
       <a-steps :current="2" class="step-bar">
-        <a-step title="选择测试" />
+        <a-step title="选择评估" />
         <a-step title="选择参数" />
         <a-step title="生成报告" />
         <a-step title="报告详情" />

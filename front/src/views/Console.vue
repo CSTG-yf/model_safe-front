@@ -292,7 +292,7 @@ const initBarChart = (dom) => {
   const option = {
     tooltip: {
       trigger: "axis",
-      formatter: "{b}: {c} 分<br/>(分数越低风险越小)",
+      formatter: "{b}: {c} 分(分数越低风险越小)",
     },
     grid: {
       left: "3%",
@@ -303,10 +303,13 @@ const initBarChart = (dom) => {
     },
     xAxis: {
       type: "category",
-      data: resultData.value.jailbreak_evaluation.map((item) => item.title),
+      // 在这里修改，取每个标题的前两个字符作为显示
+      data: resultData.value.jailbreak_evaluation.map((item) =>
+        item.title.substring(0, 2)
+      ),
       axisLabel: {
         interval: 0,
-        rotate: 0,
+        rotate: 30,
       },
     },
     yAxis: {
@@ -324,7 +327,11 @@ const initBarChart = (dom) => {
       {
         data: data.map((value, index) => ({
           value: value,
-          itemStyle: { color: barColors[index] },
+          itemStyle: {
+            color: barColors[index],
+          },
+          // 添加原始标题作为数据项的名称，这样悬浮时显示的仍然是原始标题
+          name: resultData.value.jailbreak_evaluation[index].title,
         })),
         type: "bar",
         barWidth: "40%",

@@ -24,7 +24,7 @@
             mode="inline"
             :inline-collapsed="collapsed"
             :open-keys="openKeys"
-            :selected-keys="[selectedKey]"
+            :selected-keys="[activeMenuKey]"
             @openChange="onOpenChange"
           >
             <!-- 控制台选项 -->
@@ -132,7 +132,7 @@
               theme="light"
               mode="inline"
               :inline-collapsed="collapsed"
-              :selected-keys="[selectedKey]"
+              :selected-keys="[activeMenuKey]"
             >
               <a-menu-item
                 key="setting"
@@ -187,7 +187,7 @@
             </a-button>
             <h2 class="page-title">
               {{ counterStore.projectName || "项目" }} -
-              {{ pageTitleMap[selectedKey] || "控制台" }}
+              {{ getPageTitle() }}
             </h2>
           </div>
           <div class="header-right">
@@ -230,7 +230,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useCounterStore } from "@/stores/counterStore.js";
 import {
@@ -256,18 +256,100 @@ const counterStore = useCounterStore();
 const collapsed = ref(false);
 const sidebarWidth = 280;
 
-// 默认选中"控制台"
-const selectedKey = ref("console");
+// 路由与菜单映射关系
+const routeToMenuMap = {
+  // 控制台
+  console: "console",
+
+  // 测试题库相关
+  "testbank-generate": "testbank-generate",
+  "testbank-generate-progress": "testbank-generate",
+  "testbank-generate-complete": "testbank-generate",
+  "testbank-manage": "testbank-manage",
+  "testbank-detail": "testbank-manage",
+  "testbank-extension": "testbank-extension",
+  "testbank-extension2": "testbank-extension",
+  "testbank-extension3": "testbank-extension",
+  "testbank-extension4": "testbank-extension",
+
+  // 模型测试相关
+  "testbank-test": "testbank-test",
+  "testbank-test2": "testbank-test",
+  "testbank-test3": "testbank-test",
+  "test-manage": "test-manage",
+  "test-review": "test-review",
+  "jailbreak-transform": "jailbreak-transform",
+  "jailbreak-transform2": "jailbreak-transform",
+  "jailbreak-transform3": "jailbreak-transform",
+
+  // 模型评估相关
+  "perf-eval": "perf-eval",
+  "perf-eval-dashboard": "perf-eval",
+  "perf-eval-result": "perf-eval",
+
+  // 评估报告相关
+  "report-generate": "report-generate",
+  "report-generate-params": "report-generate",
+  "report-generate-progress": "report-generate",
+  "report-generate-detail": "report-generate",
+  "report-manage": "report-manage",
+  "report-detail": "report-manage",
+};
+
+// 父菜单映射
+const subMenuMap = {
+  "testbank-generate": "testbank",
+  "testbank-manage": "testbank",
+  "testbank-extension": "testbank",
+  "testbank-test": "modeltest",
+  "test-manage": "modeltest",
+  "test-review": "modeltest",
+  "jailbreak-transform": "modeltest",
+  "perf-eval": "modeleval",
+  "report-generate": "evalreport",
+  "report-manage": "evalreport",
+};
+
+// 计算当前路由对应的菜单项
+const activeMenuKey = computed(() => {
+  const path = route.path;
+  // 从路径中提取最后一部分作为当前路由名称
+  const routeName = path.split("/").pop();
+
+  // 使用映射表找到对应的菜单key
+  return routeToMenuMap[routeName] || "console";
+});
+
+// 根据当前路由自动设置打开的子菜单
 const openKeys = ref([]);
+
+// 根据当前激活的菜单项设置打开的父菜单
+watch(
+  activeMenuKey,
+  (newKey) => {
+    const parentKey = subMenuMap[newKey];
+    if (parentKey && !openKeys.value.includes(parentKey)) {
+      openKeys.value = [...openKeys.value, parentKey];
+    }
+  },
+  { immediate: true }
+);
 
 const iconStyle = {
   fontSize: "20px",
   marginRight: "8px",
 };
 
+const menuItemStyle = {};
+
+// 获取页面标题
+function getPageTitle() {
+  const routeName = route.path.split("/").pop();
+  return pageTitleMap[routeToMenuMap[routeName]] || "控制台";
+}
+
 // 修复项目内导航，确保保留项目ID
 function goPage(key) {
-  selectedKey.value = key;
   console.log("跳转到：", key);
 
   // 获取当前项目ID
@@ -296,7 +378,6 @@ function onOpenChange(keys) {
 }
 
 function goToProject() {
-  selectedKey.value = "qwens";
   router.push("/project");
 }
 
@@ -320,6 +401,16 @@ watch(
   { immediate: true }
 );
 
+// 监听完整路由变化，确保侧边栏反映当前页面
+watch(
+  () => route.path,
+  (newPath) => {
+    console.log("路由已变更:", newPath);
+    // 自动更新父菜单状态会通过activeMenuKey的计算属性和watcher处理
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   // 检查URL参数中是否有项目ID
   if (route.params.projectId) {
@@ -330,6 +421,9 @@ onMounted(() => {
   } else {
     console.log("Project.vue: 使用store中的项目ID:", counterStore.projectId);
   }
+
+  // 添加项目变更监听
+  window.addEventListener("project-changed", handleProjectChange);
 });
 
 onUnmounted(() => {
@@ -346,6 +440,7 @@ const pageTitleMap = {
   "testbank-test": "测试执行",
   "jailbreak-transform": "越狱变形测试",
   "test-manage": "测试管理",
+  "test-review": "测试审核",
   "perf-eval": "模型评估",
   "report-generate": "报告生成",
   "report-manage": "报告管理",

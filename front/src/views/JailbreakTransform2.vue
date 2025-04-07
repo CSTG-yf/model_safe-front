@@ -12,7 +12,7 @@
 
     <!-- 测试状态卡片 -->
     <div class="content-area">
-      <a-card title="测试状态" class="status-card">
+      <a-card class="status-card">
         <div class="status-item">
           <div class="status-label">WebSocket连接状态:</div>
           <div class="status-value">
@@ -512,7 +512,7 @@ function connectWebSocket(task_id) {
         // 处理包含answer的消息
         if (hasAnswerContent(message)) {
           processTestData(message);
-          totalIterations.value++;
+          // totalIterations.value++;
           updateTestProgress();
         }
 
