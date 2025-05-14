@@ -25,9 +25,6 @@
             :format="(percent) => `${percent}%`"
           />
           <div class="progress-status">{{ generateStatus }}</div>
-          <div v-if="lastWsMessage" class="ws-debug">
-            最近WebSocket消息: {{ JSON.stringify(lastWsMessage) }}
-          </div>
         </template>
         <template v-else>
           <div class="success-icon">
@@ -35,6 +32,9 @@
             <div class="success-text">题库生成已完成!</div>
           </div>
         </template>
+        <div v-if="lastWsMessage" class="ws-debug">
+          最近WebSocket消息: {{ JSON.stringify(lastWsMessage) }}
+        </div>
       </div>
     </div>
 
@@ -85,99 +85,48 @@ const progressColor = computed(() => {
 // 处理WebSocket消息
 function handleWebSocketMessage(event) {
   try {
-    // 记录原始消息
-    console.log("WebSocket 原始消息:", event.data);
-
     const data = JSON.parse(event.data);
-
-    // 更新最近接收的消息显示
-    lastWsMessage.value = data;
-
-    // 详细记录数据结构，便于调试
-    console.log("WebSocket 数据结构分析:", {
-      数据类型: typeof data,
-      完整数据: data,
-      字段列表: Object.keys(data),
-      字段值: Object.values(data),
-    });
-
-    // 根据分析的数据结构适配UI更新
-    // 仅当确认后端数据结构后再取消注释下面代码
-
-    /*
-    // 假设数据格式为 { progress: 50, message: "正在生成题库...", completed: false }
-    if (data.progress !== undefined) {
-      generateProgress.value = parseFloat(data.progress);
-    }
-    
-    if (data.message) {
-      generateStatus.value = data.message;
-    }
-    
-    if (data.completed === true) {
-      generateCompleted.value = true;
-      generateProgress.value = 100;
-      generateStatus.value = "题库生成已完成!";
-    }
-    */
+    console.log("接收到的WebSocket消息:", data);
+    lastWsMessage.value = data; // 更新最近接收的消息显示
   } catch (error) {
     console.error("WebSocket 消息解析错误:", error);
   }
 }
 
-// 跳转到下一步
-function goNextStep() {
-  if (generateCompleted.value) {
-    const projectId = route.params.projectId;
-    const questionBankId = counterStore.questionBankId;
-
-    // 跳转并传递 questionBankId 作为查询参数
-    router.push({
-      path: `/project/${projectId}/testbank-generate-complete`,
-      query: { questionBankId }, // 将 questionBankId 作为查询参数传递
-    });
-  }
-}
-
 // 连接WebSocket
-function connectWebSocket(taskId) {
-  // 构建WebSocket URL
+function connectWebSocket(projectId) {
   const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${wsProtocol}//127.0.0.1:8000/ws/jailbreak_evaluation/${taskId}/`;
+  const wsUrl = `${wsProtocol}//127.0.0.1:8000/ws/question_generation/${projectId}/`;
 
   console.log("正在连接WebSocket:", wsUrl);
-  console.log("使用的任务ID:", taskId);
 
-  // 创建WebSocket连接
   webSocket.value = new WebSocket(wsUrl);
 
-  // 设置WebSocket事件处理器
   webSocket.value.onopen = () => {
     console.log("WebSocket 连接已建立");
-    message.success("实时进度连接已建立");
-    // 可以在这里发送初始请求
-    // webSocket.value.send(JSON.stringify({ action: 'start' }));
+    message.success("WebSocket 连接已建立");
   };
 
   webSocket.value.onmessage = handleWebSocketMessage;
 
   webSocket.value.onerror = (error) => {
     console.error("WebSocket 错误:", error);
-    message.error("实时进度连接失败，将使用模拟进度");
-    // 连接失败时回退到模拟进度
-    startGenerateProgress();
+    message.error("WebSocket 连接失败");
   };
 
   webSocket.value.onclose = (event) => {
     console.log("WebSocket 连接已关闭", event.code, event.reason);
-    if (!event.wasClean) {
-      message.warn("实时进度连接意外断开，将使用模拟进度");
-      startGenerateProgress();
-    }
   };
 }
 
-// 模拟生成进度（备用方案）
+// 关闭WebSocket连接
+function closeWebSocket() {
+  if (webSocket.value && webSocket.value.readyState === WebSocket.OPEN) {
+    webSocket.value.close();
+  }
+}
+
+// 模拟生成进度（动画）
 function startGenerateProgress() {
   let timer = null;
   let speed = 1; // 进度条增速
@@ -201,17 +150,21 @@ function startGenerateProgress() {
     if (generateProgress.value >= 100) {
       clearInterval(timer);
       generateProgress.value = 100;
-      generateCompleted.value = true;
     }
   }, 100); // 每100ms更新一次进度
-
-  return timer;
 }
 
-// 关闭WebSocket连接
-function closeWebSocket() {
-  if (webSocket.value && webSocket.value.readyState === WebSocket.OPEN) {
-    webSocket.value.close();
+// 跳转到下一步
+function goNextStep() {
+  if (generateCompleted.value) {
+    const projectId = route.params.projectId;
+    const questionBankId = counterStore.questionBankId;
+
+    // 跳转并传递 questionBankId 作为查询参数
+    router.push({
+      path: `/project/${projectId}/testbank-generate-complete`,
+      query: { questionBankId }, // 将 questionBankId 作为查询参数传递
+    });
   }
 }
 
@@ -225,12 +178,12 @@ onMounted(async () => {
     return;
   }
 
-  try {
-    // 构建任务ID（根据后端格式）
-    const taskId = `${projectId}`;
+  // 启动WebSocket连接
+  connectWebSocket(projectId);
 
-    // 连接WebSocket获取实时进度
-    connectWebSocket(taskId);
+  try {
+    // 启动进度条动画
+    startGenerateProgress();
 
     // 发送题库生成请求
     const response = await axios({
@@ -246,23 +199,23 @@ onMounted(async () => {
         number: parseInt(route.query.number),
         security_ratio: JSON.parse(route.query.security_ratio),
         question_bank_id: questionBankId,
-        task_id: taskId, // 添加taskId参数用于WebSocket连接
       },
     });
 
+    // 打印接收到的响应数据，方便调试
     console.log("后端响应数据:", response.data);
 
-    // 如果WebSocket失败且后端返回成功，直接标记为完成
-    if (response.data.status === "success" && !generateCompleted.value) {
+    // 修改判断条件以符合后端返回数据
+    if (response.data.status === "success") {
+      // 更新生成完成状态
       generateCompleted.value = true;
-      generateProgress.value = 100;
       generateStatus.value = "题库生成已完成!";
+    } else {
+      message.error("题库生成失败：" + response.data.message);
     }
   } catch (error) {
     console.error("题库生成请求失败:", error);
     message.error(error.message || "请求失败");
-    // 请求失败时启动模拟进度
-    startGenerateProgress();
   }
 });
 
@@ -316,16 +269,6 @@ onBeforeUnmount(() => {
   color: #666;
 }
 
-.ws-debug {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #999;
-  max-width: 320px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .success-icon {
   display: flex;
   flex-direction: column;
@@ -338,6 +281,16 @@ onBeforeUnmount(() => {
   font-size: 24px;
   font-weight: 600;
   color: #52c41a;
+}
+
+.ws-debug {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #999;
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 底部按钮区域 */
