@@ -66,6 +66,8 @@ const counterStore = useCounterStore();
 
 // 生成进度
 const generateProgress = ref(1); // 从 1% 开始
+// 允许的最大进度
+const maxAllowedProgress = ref(1);
 // 生成状态文本
 const generateStatus = ref("正在生成题库...");
 // 生成是否完成
@@ -88,6 +90,20 @@ function handleWebSocketMessage(event) {
     const data = JSON.parse(event.data);
     console.log("接收到的WebSocket消息:", data);
     lastWsMessage.value = data; // 更新最近接收的消息显示
+
+    if (data.progress !== undefined) {
+      // 更新允许的最大进度
+      maxAllowedProgress.value = Math.max(
+        maxAllowedProgress.value,
+        data.progress
+      );
+
+      // 如果进度达到100%，则生成完成
+      if (data.progress === 100) {
+        generateCompleted.value = true;
+        generateStatus.value = "题库生成已完成!";
+      }
+    }
   } catch (error) {
     console.error("WebSocket 消息解析错误:", error);
   }
@@ -133,7 +149,9 @@ function startGenerateProgress() {
 
   timer = setInterval(() => {
     // 进度增量，每次加1，模拟一个加载进度
-    generateProgress.value += speed;
+    if (generateProgress.value < maxAllowedProgress.value) {
+      generateProgress.value += speed;
+    }
 
     // 更新状态文本
     if (generateProgress.value < 30) {
@@ -142,14 +160,13 @@ function startGenerateProgress() {
       generateStatus.value = "正在根据知识点生成题目...";
     } else if (generateProgress.value < 90) {
       generateStatus.value = "正在优化题目质量...";
-    } else {
+    } else if (!generateCompleted.value) {
       generateStatus.value = "即将完成题库生成...";
     }
 
-    // 当进度达到100%时停止
-    if (generateProgress.value >= 100) {
+    // 当进度达到允许的最大值或100%时停止
+    if (generateProgress.value >= maxAllowedProgress.value) {
       clearInterval(timer);
-      generateProgress.value = 100;
     }
   }, 100); // 每100ms更新一次进度
 }

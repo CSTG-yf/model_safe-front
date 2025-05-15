@@ -88,7 +88,7 @@
         <h3 class="section-title">题目信息</h3>
         <p><strong>题目：</strong>{{ currentItem.input_text.question }}</p>
         <p><strong>题型：</strong>{{ currentItem.input_text.question_type }}</p>
-        <!-- 如果题型包含“选择”，则显示选项 -->
+        <!-- 如果题型包含"选择"，则显示选项 -->
         <template v-if="currentItem.input_text.question_type.includes('选择')">
           <p><strong>选项：</strong></p>
           <ul class="option-list">
@@ -259,7 +259,6 @@ async function openReview(item) {
 }
 
 // 保存评分操作
-// 保存评分操作
 async function saveReview() {
   const idx = testDetails.value.records.findIndex(
     (q) => q.record_id === currentItem.record_id
@@ -269,6 +268,19 @@ async function saveReview() {
     testDetails.value.records[idx].score = currentItem.score;
     // 保存评分说明
     testDetails.value.records[idx].scoreComment = currentItem.scoreComment;
+
+    // 重新计算平均分
+    const validScores = testDetails.value.records
+      .filter((record) => record.score > 0)
+      .map((record) => record.score);
+
+    testDetails.value.average_score =
+      validScores.length > 0
+        ? (
+            validScores.reduce((sum, score) => sum + score, 0) /
+            validScores.length
+          ).toFixed(1)
+        : 0;
 
     // 向后端发送更新请求
     try {
@@ -295,7 +307,6 @@ async function saveReview() {
   reviewVisible.value = false;
 }
 
-// 删除题目
 // 删除题目
 async function deleteQuestion(record_id) {
   try {
