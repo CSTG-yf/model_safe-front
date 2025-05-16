@@ -89,9 +89,7 @@
         :loading="loading"
         class="generate-btn"
       >
-        {{
-          loading ? "正在提交..." : `生成观测题库（共${domainQuestionCount}题）`
-        }}
+        {{ loading ? "正在提交..." : "生成观测题库" }}
       </a-button>
       <div class="alert-container">
         <div v-if="totalRatio !== 100" class="alert-item">

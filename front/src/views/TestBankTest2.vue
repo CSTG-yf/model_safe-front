@@ -48,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { CheckCircleFilled } from "@ant-design/icons-vue";
 import axios from "axios";
@@ -61,6 +61,7 @@ const counterStore = useCounterStore();
 
 const evaluationId = route.query.evaluationId;
 const questionBankId = route.query.questionBankId;
+const projectId = route.params.projectId; // 从路由路径中获取 projectId
 
 const testProgress = ref(1);
 const testStatus = ref("正在准备测试环境...");
@@ -73,13 +74,18 @@ const progressColor = computed(() => {
   return "#52c41a";
 });
 
-// 进度动画（与题库生成一致）
+let websocket;
+let maxProgress = 1; // 允许的最大进度
+
+// 进度动画
 function startTestProgress() {
   let timer = null;
   let speed = 1;
 
   timer = setInterval(() => {
-    testProgress.value += speed;
+    if (testProgress.value < maxProgress) {
+      testProgress.value += speed;
+    }
 
     if (testProgress.value < 30) {
       testStatus.value = "正在初始化测试环境...";
@@ -148,12 +154,55 @@ function goNextStep() {
   }
 }
 
+function setupWebSocket() {
+  const wsUrl = `ws://localhost:8000/ws/evaluation/${projectId}/`;
+  websocket = new WebSocket(wsUrl);
+
+  websocket.onopen = () => {
+    console.log("WebSocket已连接");
+  };
+
+  websocket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log("Received message:", data);
+
+    // 使用 WebSocket 消息更新进度
+    if (data.progress !== undefined) {
+      maxProgress = data.progress; // 更新允许的最大进度
+    }
+    if (data.message) {
+      testStatus.value = data.message;
+    }
+
+    // 如果接收到的进度是 100%，则标记测试完成
+    if (maxProgress >= 100) {
+      testCompleted.value = true;
+      testStatus.value = "测试已完成!";
+    }
+  };
+
+  websocket.onclose = () => {
+    console.log("WebSocket已断开");
+  };
+
+  websocket.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
+}
+
 onMounted(() => {
   if (!evaluationId || !questionBankId) {
     message.error("缺少必要参数");
     return;
   }
   runTest();
+  setupWebSocket();
+});
+
+onUnmounted(() => {
+  if (websocket) {
+    websocket.close();
+  }
 });
 </script>
 
