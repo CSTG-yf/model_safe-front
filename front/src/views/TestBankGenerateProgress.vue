@@ -94,9 +94,9 @@ function handleWebSocketMessage(event) {
 }
 
 // 连接WebSocket
-function connectWebSocket(projectId) {
-  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${wsProtocol}//127.0.0.1:8000/ws/question_generation/${projectId}/`;
+function connectWebSocket(project_id) {
+  //const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `ws://127.0.0.1:8000/ws/question_generation/${project_id}/`;
 
   console.log("正在连接WebSocket:", wsUrl);
 
