@@ -32,9 +32,6 @@
             <div class="success-text">题库生成已完成!</div>
           </div>
         </template>
-        <div v-if="lastWsMessage" class="ws-debug">
-          最近WebSocket消息: {{ JSON.stringify(lastWsMessage) }}
-        </div>
       </div>
     </div>
 
@@ -99,7 +96,7 @@ function handleWebSocketMessage(event) {
       );
 
       // 如果进度达到100%，则生成完成
-      if (data.progress === 100) {
+      if (data.progress == 100 && data.tag == 'success') {
         generateCompleted.value = true;
         generateStatus.value = "题库生成已完成!";
       }

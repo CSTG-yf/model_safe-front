@@ -359,7 +359,7 @@ function processTestData(data) {
         id: currentTestId,
         category: category,
         title: title,
-        originalPrompt: entry.question, // 第一次迭代的问题作为原始提示
+        originalPrompt:data.data.initial_question , // 第一次迭代的问题作为原始提示
         iterations: [],
       };
       jailbreakTests.value.push(testCase);

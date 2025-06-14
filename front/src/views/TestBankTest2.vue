@@ -133,6 +133,7 @@ async function runTest() {
 
     message.success("测试已启动");
     startTestProgress();
+    testCompleted.value = true;
   } catch (err) {
     console.error(err);
     message.error("测试启动失败");
@@ -155,7 +156,7 @@ function goNextStep() {
 }
 
 function setupWebSocket() {
-  const wsUrl = `ws://localhost:8000/ws/evaluation/${projectId}/`;
+  const wsUrl = `ws://localhost:8000/ws/evaluation/${evaluationId}/`;
   websocket = new WebSocket(wsUrl);
 
   websocket.onopen = () => {
@@ -175,7 +176,7 @@ function setupWebSocket() {
     }
 
     // 如果接收到的进度是 100%，则标记测试完成
-    if (maxProgress >= 100) {
+    if (data.tag == 'success') {
       testCompleted.value = true;
       testStatus.value = "测试已完成!";
     }
@@ -195,8 +196,8 @@ onMounted(() => {
     message.error("缺少必要参数");
     return;
   }
-  runTest();
   setupWebSocket();
+  runTest();
 });
 
 onUnmounted(() => {
