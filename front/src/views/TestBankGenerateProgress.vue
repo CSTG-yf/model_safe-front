@@ -17,12 +17,12 @@
         <!-- 生成中显示进度圈，生成完成显示成功图标 -->
         <template v-if="!generateCompleted">
           <a-progress
-            type="circle"
-            :percent="Math.floor(generateProgress)"
-            :width="320"
-            :stroke-color="progressColor"
-            :stroke-width="10"
-            :format="(percent) => `${percent}%`"
+              type="circle"
+              :percent="Math.floor(generateProgress)"
+              :width="320"
+              :stroke-color="progressColor"
+              :stroke-width="10"
+              :format="(percent) => `${percent}%`"
           />
           <div class="progress-status">{{ generateStatus }}</div>
         </template>
@@ -35,16 +35,20 @@
         <div v-if="lastProgressData" class="progress-debug">
           最近进度数据: {{ JSON.stringify(lastProgressData) }}
         </div>
+        <!-- 调试信息 -->
+        <div class="debug-info" style="margin-top: 10px; font-size: 12px; color: #666;">
+          当前进度: {{ generateProgress }} / 最大允许: {{ maxAllowedProgress }}
+        </div>
       </div>
     </div>
 
     <!-- 底部操作区域 -->
     <div class="footer-area">
       <a-button
-        type="primary"
-        class="next-btn"
-        @click="goNextStep"
-        :disabled="!generateCompleted"
+          type="primary"
+          class="next-btn"
+          @click="goNextStep"
+          :disabled="!generateCompleted"
       >
         下一步
       </a-button>
@@ -53,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { CheckCircleFilled } from "@ant-design/icons-vue";
 import { useRouter, useRoute } from "vue-router";
 import { useCounterStore } from "@/stores/counterStore.js";
@@ -74,6 +78,8 @@ const generateStatus = ref("正在生成题库...");
 const generateCompleted = ref(false);
 // 轮询定时器
 const progressTimer = ref(null);
+// 动画定时器
+const animationTimer = ref(null);
 // 最近接收的进度数据
 const lastProgressData = ref(null);
 
@@ -113,9 +119,16 @@ async function fetchGenerateProgress() {
       console.log("解析的进度信息:", { progress, status, state, message });
 
       if (progress !== undefined) {
+        const oldMaxProgress = maxAllowedProgress.value;
         // 更新允许的最大进度
         maxAllowedProgress.value = Math.max(maxAllowedProgress.value, progress);
-        console.log("更新最大允许进度:", maxAllowedProgress.value);
+
+        console.log("进度更新:", {
+          oldMax: oldMaxProgress,
+          newMax: maxAllowedProgress.value,
+          currentProgress: generateProgress.value,
+          backendProgress: progress
+        });
 
         // 更新状态文本
         if (message) {
@@ -129,7 +142,9 @@ async function fetchGenerateProgress() {
         if (progress >= 100) {
           generateCompleted.value = true;
           generateStatus.value = "题库生成已完成!";
+          generateProgress.value = 100; // 确保进度条显示100%
           stopProgressPolling();
+          stopProgressAnimation();
           console.log("题库生成完成，停止轮询");
         }
       }
@@ -162,11 +177,11 @@ function startProgressPolling() {
   // 立即获取一次进度
   fetchGenerateProgress();
 
-  // 每5秒轮询一次
+  // 每3秒轮询一次（缩短间隔以便更快看到效果）
   progressTimer.value = setInterval(() => {
     console.log("执行定时轮询...");
     fetchGenerateProgress();
-  }, 5000);
+  }, 3000);
 }
 
 // 停止轮询进度
@@ -178,23 +193,54 @@ function stopProgressPolling() {
   }
 }
 
-// 模拟生成进度（动画）
-function startGenerateProgress() {
-  let timer = null;
-  let speed = 1; // 进度条增速
+// 停止进度动画
+function stopProgressAnimation() {
+  if (animationTimer.value) {
+    console.log("停止进度动画");
+    clearInterval(animationTimer.value);
+    animationTimer.value = null;
+  }
+}
 
-  timer = setInterval(() => {
-    // 进度增量，每次加1，模拟一个加载进度
-    if (generateProgress.value < maxAllowedProgress.value) {
-      generateProgress.value += speed;
-    }
+// 启动或继续进度动画
+function startOrContinueProgressAnimation() {
+  // 先停止之前的动画
+  stopProgressAnimation();
 
-    // 当进度达到允许的最大值时停止
-    if (generateProgress.value >= maxAllowedProgress.value) {
-      clearInterval(timer);
+  console.log("启动/继续进度动画", {
+    currentProgress: generateProgress.value,
+    maxAllowed: maxAllowedProgress.value
+  });
+
+  // 如果当前进度已经达到或超过最大允许进度，则不需要动画
+  if (generateProgress.value >= maxAllowedProgress.value) {
+    console.log("当前进度已达到最大值，无需动画");
+    return;
+  }
+
+  const speed = 0.5; // 进度条增速（调慢一点，更平滑）
+
+  animationTimer.value = setInterval(() => {
+    if (generateProgress.value < maxAllowedProgress.value && !generateCompleted.value) {
+      generateProgress.value = Math.min(generateProgress.value + speed, maxAllowedProgress.value);
+      console.log("进度动画更新:", generateProgress.value.toFixed(1));
+    } else {
+      console.log("进度动画达到目标值，停止动画");
+      stopProgressAnimation();
     }
   }, 100); // 每100ms更新一次进度
 }
+
+// 监听最大允许进度的变化
+watch(maxAllowedProgress, (newVal, oldVal) => {
+  console.log("maxAllowedProgress 变化:", oldVal, "->", newVal);
+
+  // 只有当新值大于旧值，且新值大于当前显示进度，且未完成时，才继续动画
+  if (newVal > oldVal && newVal > generateProgress.value && !generateCompleted.value) {
+    console.log("检测到进度上限增加，继续动画到新上限");
+    startOrContinueProgressAnimation();
+  }
+});
 
 // 跳转到下一步
 function goNextStep() {
@@ -222,8 +268,8 @@ onMounted(async () => {
     return;
   }
 
-  // 启动进度条动画
-  startGenerateProgress();
+  // 启动进度条动画和轮询
+  startOrContinueProgressAnimation();
   startProgressPolling();
 
   try {
@@ -256,9 +302,9 @@ onMounted(async () => {
       console.error("错误状态码:", error.response.status);
       console.error("错误响应数据:", error.response.data);
       message.error(
-        `请求失败: ${error.response.status} - ${
-          error.response.data.message || error.response.statusText
-        }`
+          `请求失败: ${error.response.status} - ${
+              error.response.data.message || error.response.statusText
+          }`
       );
     } else {
       message.error(error.message || "请求失败");
@@ -270,6 +316,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   console.log("组件销毁，清理定时器");
   stopProgressPolling();
+  stopProgressAnimation();
 });
 </script>
 

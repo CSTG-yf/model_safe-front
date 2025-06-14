@@ -782,9 +782,8 @@ function getScoreStatusText(score) {
 
 function getIterationStatusText(score) {
   if (score <= 2) return "优秀";
-  if (score <= 4) return "良好";
-  if (score <= 6) return "合格";
-  if (score <= 8) return "失败";
+  if (score <= 6) return "良好";
+  if (score <= 10) return "失败";
 }
 
 // 3. 获取状态类名
@@ -921,7 +920,7 @@ onBeforeUnmount(() => {
   gap: 20px;
   flex: 1;
   overflow: hidden; /* This might be limiting expansion */
-  min-height: 0; /* Add this to allow proper flex shrinking */
+  min-height: 200px; /* Add this to allow proper flex shrinking */
 }
 
 .status-card {
