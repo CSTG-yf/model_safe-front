@@ -30,6 +30,15 @@
             <div class="success-text">测试已完成!</div>
           </div>
         </template>
+
+        <!-- 调试信息 -->
+        <div
+          class="debug-info"
+          style="margin-top: 10px; font-size: 12px; color: #666"
+        >
+          当前显示进度: {{ testProgress.toFixed(1) }}% | 目标进度:
+          {{ targetProgress }}% | 后端进度: {{ backendProgress }}%
+        </div>
       </div>
     </div>
 
@@ -48,7 +57,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { CheckCircleFilled } from "@ant-design/icons-vue";
 import axios from "axios";
@@ -61,51 +70,187 @@ const counterStore = useCounterStore();
 
 const evaluationId = route.query.evaluationId;
 const questionBankId = route.query.questionBankId;
-const projectId = route.params.projectId; // 从路由路径中获取 projectId
+const projectId = route.params.projectId;
 
-const testProgress = ref(1);
+// 当前显示的进度（动画进度）
+const testProgress = ref(1); // 从 1% 开始显示
+// 目标进度（从后端获取的进度）
+const targetProgress = ref(1);
+// 后端返回的原始进度值
+const backendProgress = ref(0);
+// 测试状态文本
 const testStatus = ref("正在准备测试环境...");
+// 测试是否完成
 const testCompleted = ref(false);
-const backendReady = ref(false);
+// 轮询定时器
+const progressTimer = ref(null);
+// 动画定时器
+const animationTimer = ref(null);
 
+// 进度颜色
 const progressColor = computed(() => {
   if (testProgress.value < 30) return "#ff4d4f";
   if (testProgress.value < 70) return "#faad14";
   return "#52c41a";
 });
 
-let websocket;
-let maxProgress = 1; // 允许的最大进度
+// 获取测试进度
+async function fetchTestProgress() {
+  console.log("正在获取测试进度...", { projectId, evaluationId });
 
-// 进度动画
-function startTestProgress() {
-  let timer = null;
-  let speed = 1;
+  try {
+    const response = await axios({
+      method: "post",
+      url: `http://127.0.0.1:8000/api/model-evaluation/${projectId}/process/`,
+      headers: {
+        Authorization: `Bearer ${counterStore.access}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        evaluation_id: parseInt(evaluationId),
+      },
+    });
 
-  timer = setInterval(() => {
-    if (testProgress.value < maxProgress) {
-      testProgress.value += speed;
-    }
+    console.log("接收到的进度数据:", response.data);
 
-    if (testProgress.value < 30) {
-      testStatus.value = "正在初始化测试环境...";
-    } else if (testProgress.value < 60) {
-      testStatus.value = "正在执行测试用例...";
-    } else if (testProgress.value < 90) {
-      testStatus.value = "正在分析测试结果...";
-    } else {
-      testStatus.value = "即将完成测试...";
-    }
+    // 根据你的后端返回格式调整这里的判断条件
+    // 假设后端返回格式类似: { status: 'success', progress: 50, message: '...' }
+    if (
+      response.data.status === "success" &&
+      response.data.progress !== undefined
+    ) {
+      const { progress, status, state, message } = response.data;
 
-    if (testProgress.value >= 100) {
-      clearInterval(timer);
-      testProgress.value = 100;
-      if (backendReady.value) {
+      console.log("解析的进度信息:", { progress, status, state, message });
+
+      // 更新后端进度
+      backendProgress.value = progress;
+
+      // 设置新的目标进度（确保不小于当前显示进度）
+      const newTargetProgress = Math.max(progress, testProgress.value);
+
+      console.log("进度更新:", {
+        currentDisplay: testProgress.value,
+        backendProgress: progress,
+        oldTarget: targetProgress.value,
+        newTarget: newTargetProgress,
+      });
+
+      // 只有当新目标大于当前目标时才更新并启动动画
+      if (newTargetProgress > targetProgress.value) {
+        targetProgress.value = newTargetProgress;
+        startProgressAnimation();
+      }
+
+      // 更新状态文本
+      if (message) {
+        testStatus.value = message;
+      } else {
+        updateStatusByProgress(progress);
+      }
+
+      // 如果进度达到100%，则测试完成
+      if (progress >= 100) {
+        targetProgress.value = 100;
         testCompleted.value = true;
         testStatus.value = "测试已完成!";
+        stopProgressPolling();
+        console.log("测试完成，停止轮询");
       }
+    } else {
+      console.warn("响应格式不正确或状态不是success:", response.data);
     }
-  }, 100);
+  } catch (error) {
+    console.error("获取测试进度失败:", error);
+    if (error.response) {
+      console.error("错误响应:", error.response.data);
+    }
+  }
+}
+
+// 根据进度更新状态文本
+function updateStatusByProgress(progress) {
+  if (progress < 30) {
+    testStatus.value = "正在初始化测试环境...";
+  } else if (progress < 60) {
+    testStatus.value = "正在执行测试用例...";
+  } else if (progress < 90) {
+    testStatus.value = "正在分析测试结果...";
+  } else if (!testCompleted.value) {
+    testStatus.value = "即将完成测试...";
+  }
+}
+
+// 开始轮询进度
+function startProgressPolling() {
+  console.log("开始轮询测试进度...");
+
+  // 立即获取一次进度
+  fetchTestProgress();
+
+  // 每3秒轮询一次
+  progressTimer.value = setInterval(() => {
+    console.log("执行定时轮询...");
+    fetchTestProgress();
+  }, 3000);
+}
+
+// 停止轮询进度
+function stopProgressPolling() {
+  if (progressTimer.value) {
+    console.log("停止进度轮询");
+    clearInterval(progressTimer.value);
+    progressTimer.value = null;
+  }
+}
+
+// 启动进度动画（从当前进度增长到目标进度）
+function startProgressAnimation() {
+  // 先停止之前的动画
+  stopProgressAnimation();
+
+  console.log("启动进度动画", {
+    from: testProgress.value,
+    to: targetProgress.value,
+  });
+
+  // 如果当前进度已经达到目标进度，无需动画
+  if (testProgress.value >= targetProgress.value) {
+    console.log("当前进度已达到目标，无需动画");
+    return;
+  }
+
+  const speed = 0.8; // 动画速度（每100ms增长0.8%）
+
+  animationTimer.value = setInterval(() => {
+    if (testProgress.value < targetProgress.value) {
+      // 增长进度，但不超过目标值
+      testProgress.value = Math.min(
+        testProgress.value + speed,
+        targetProgress.value
+      );
+
+      console.log(
+        "进度动画:",
+        testProgress.value.toFixed(1),
+        "->",
+        targetProgress.value
+      );
+    } else {
+      // 达到目标进度，停止动画
+      console.log("进度动画完成，当前进度:", testProgress.value);
+      stopProgressAnimation();
+    }
+  }, 100); // 每100ms更新一次
+}
+
+// 停止进度动画
+function stopProgressAnimation() {
+  if (animationTimer.value) {
+    console.log("停止进度动画");
+    clearInterval(animationTimer.value);
+    animationTimer.value = null;
+  }
 }
 
 // 请求后端启动测试
@@ -124,70 +269,30 @@ async function runTest() {
       }
     );
 
-    backendReady.value = true;
-
-    if (testProgress.value >= 100) {
-      testCompleted.value = true;
-      testStatus.value = "测试已完成!";
-    }
-
+    console.log("测试启动响应:", res.data);
     message.success("测试已启动");
-    startTestProgress();
+
+    // 启动测试后开始轮询进度
+    startProgressPolling();
   } catch (err) {
-    console.error(err);
+    console.error("测试启动失败:", err);
     message.error("测试启动失败");
   }
 }
 
 function goNextStep() {
   if (testCompleted.value) {
-    const projectId = route.params.projectId; // 从路由路径中获取 projectId
+    const projectId = route.params.projectId;
 
     // 跳转到下一个界面并传递 evaluationId 和 projectId
     router.push({
       path: `/project/${projectId}/testbank-test3`,
       query: {
-        evaluationId: evaluationId, // 传递评测 ID
-        projectId: projectId, // 传递项目 ID
+        evaluationId: evaluationId,
+        projectId: projectId,
       },
     });
   }
-}
-
-function setupWebSocket() {
-  const wsUrl = `ws://localhost:8000/ws/evaluation/${projectId}/`;
-  websocket = new WebSocket(wsUrl);
-
-  websocket.onopen = () => {
-    console.log("WebSocket已连接");
-  };
-
-  websocket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    console.log("Received message:", data);
-
-    // 使用 WebSocket 消息更新进度
-    if (data.progress !== undefined) {
-      maxProgress = data.progress; // 更新允许的最大进度
-    }
-    if (data.message) {
-      testStatus.value = data.message;
-    }
-
-    // 如果接收到的进度是 100%，则标记测试完成
-    if (maxProgress >= 100) {
-      testCompleted.value = true;
-      testStatus.value = "测试已完成!";
-    }
-  };
-
-  websocket.onclose = () => {
-    console.log("WebSocket已断开");
-  };
-
-  websocket.onerror = (error) => {
-    console.error("WebSocket error:", error);
-  };
 }
 
 onMounted(() => {
@@ -195,14 +300,18 @@ onMounted(() => {
     message.error("缺少必要参数");
     return;
   }
+
+  console.log("页面加载，参数:", { evaluationId, questionBankId, projectId });
+
+  // 启动测试
   runTest();
-  setupWebSocket();
 });
 
-onUnmounted(() => {
-  if (websocket) {
-    websocket.close();
-  }
+// 组件销毁前清理定时器
+onBeforeUnmount(() => {
+  console.log("组件销毁，清理定时器");
+  stopProgressPolling();
+  stopProgressAnimation();
 });
 </script>
 
@@ -216,17 +325,21 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
 }
+
 .header-area {
   margin-bottom: 40px;
 }
+
 .page-title {
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 600;
 }
+
 .step-bar {
   margin-bottom: 16px;
 }
+
 .test-progress-area {
   flex: 1;
   display: flex;
@@ -234,32 +347,46 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 40px;
 }
+
 .progress-circle-container {
   text-align: center;
   position: relative;
 }
+
 .progress-status {
   margin-top: 20px;
   font-size: 18px;
   color: #666;
 }
+
 .success-icon {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
+
 .success-text {
   margin-top: 20px;
   font-size: 24px;
   font-weight: 600;
   color: #52c41a;
 }
+
+.debug-info {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #999;
+  max-width: 400px;
+  word-wrap: break-word;
+}
+
 .footer-area {
   display: flex;
   justify-content: flex-end;
   margin-top: auto;
 }
+
 .next-btn {
   min-width: 100px;
 }
