@@ -51,12 +51,6 @@
               >
                 题库生成
               </a-menu-item>
-              <!-- <a-menu-item
-                key="testbank-transform"
-                @click="goPage('testbank-extension')"
-              >
-                题库变形扩展
-              </a-menu-item> -->
               <a-menu-item
                 key="testbank-manage"
                 @click="goPage('testbank-manage')"
@@ -82,9 +76,6 @@
               >
                 越狱变形测试
               </a-menu-item>
-              <!-- <a-menu-item key="test-review" @click="goPage('test-review')">
-                测试审核
-              </a-menu-item> -->
               <a-menu-item key="test-manage" @click="goPage('test-manage')">
                 测试管理
               </a-menu-item>
@@ -101,9 +92,6 @@
               <a-menu-item key="perf-eval" @click="goPage('perf-eval')">
                 模型评估
               </a-menu-item>
-              <!-- <a-menu-item key="safe-eval" @click="goPage('safe-eval')">
-                安全评估
-              </a-menu-item> -->
             </a-sub-menu>
 
             <!-- 父层级：评估报告 -->
@@ -167,6 +155,7 @@
                 <span class="menu-text">返回主页</span>
               </a-menu-item>
             </a-menu>
+
             <div v-if="!collapsed" class="version-info">
               大模型观测测评平台 V1.0
             </div>
@@ -201,9 +190,9 @@
               <template #overlay>
                 <a-menu>
                   <a-menu-item key="profile">个人中心</a-menu-item>
-                  <a-menu-item key="logout" @click="onLogout"
-                    >退出登录</a-menu-item
-                  >
+                  <a-menu-item key="logout" @click="onLogout">
+                    退出登录
+                  </a-menu-item>
                 </a-menu>
               </template>
               <div class="user-info">
@@ -233,6 +222,10 @@
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useCounterStore } from "@/stores/counterStore.js";
+import { Modal, Input, message } from "ant-design-vue";
+import axios from "axios";
+import { createVNode, render } from "vue";
+
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -245,14 +238,12 @@ import {
   BellOutlined,
   SettingOutlined,
   UserOutlined,
-  ToolOutlined,
   ArrowLeftOutlined,
 } from "@ant-design/icons-vue";
 
 const router = useRouter();
 const route = useRoute();
 const counterStore = useCounterStore();
-
 const collapsed = ref(false);
 const sidebarWidth = 280;
 
@@ -260,50 +251,29 @@ const sidebarWidth = 280;
 const routeToMenuMap = {
   // 控制台
   console: "console",
-
   // 测试题库相关
   "testbank-generate": "testbank-generate",
   "testbank-generate-progress": "testbank-generate",
   "testbank-generate-complete": "testbank-generate",
   "testbank-manage": "testbank-manage",
   "testbank-detail": "testbank-manage",
-  "testbank-extension": "testbank-extension",
-  "testbank-extension2": "testbank-extension",
-  "testbank-extension3": "testbank-extension",
-  "testbank-extension4": "testbank-extension",
-
   // 模型测试相关
   "testbank-test": "testbank-test",
-  "testbank-test2": "testbank-test",
-  "testbank-test3": "testbank-test",
   "test-manage": "test-manage",
-  "test-review": "test-review",
   "jailbreak-transform": "jailbreak-transform",
-  "jailbreak-transform2": "jailbreak-transform",
-  "jailbreak-transform3": "jailbreak-transform",
-
   // 模型评估相关
   "perf-eval": "perf-eval",
-  "perf-eval-dashboard": "perf-eval",
-  "perf-eval-result": "perf-eval",
-
   // 评估报告相关
   "report-generate": "report-generate",
-  "report-generate-params": "report-generate",
-  "report-generate-progress": "report-generate",
-  "report-generate-detail": "report-generate",
   "report-manage": "report-manage",
-  "report-detail": "report-manage",
 };
 
 // 父菜单映射
 const subMenuMap = {
   "testbank-generate": "testbank",
   "testbank-manage": "testbank",
-  "testbank-extension": "testbank",
   "testbank-test": "modeltest",
   "test-manage": "modeltest",
-  "test-review": "modeltest",
   "jailbreak-transform": "modeltest",
   "perf-eval": "modeleval",
   "report-generate": "evalreport",
@@ -315,14 +285,12 @@ const activeMenuKey = computed(() => {
   const path = route.path;
   // 从路径中提取最后一部分作为当前路由名称
   const routeName = path.split("/").pop();
-
   // 使用映射表找到对应的菜单key
   return routeToMenuMap[routeName] || "console";
 });
 
 // 根据当前路由自动设置打开的子菜单
 const openKeys = ref([]);
-
 // 根据当前激活的菜单项设置打开的父菜单
 watch(
   activeMenuKey,
@@ -339,7 +307,6 @@ const iconStyle = {
   fontSize: "20px",
   marginRight: "8px",
 };
-
 const menuItemStyle = {};
 
 // 获取页面标题
@@ -348,19 +315,127 @@ function getPageTitle() {
   return pageTitleMap[routeToMenuMap[routeName]] || "控制台";
 }
 
+// 页面标题映射
+const pageTitleMap = {
+  console: "控制台",
+  "testbank-generate": "题库生成",
+  "testbank-manage": "题库管理",
+  "testbank-extension": "题库变形扩展",
+  "testbank-test": "测试执行",
+  "jailbreak-transform": "越狱变形测试",
+  "test-manage": "测试管理",
+  "perf-eval": "模型评估",
+  "report-generate": "报告生成",
+  "report-manage": "报告管理",
+};
+
 // 修复项目内导航，确保保留项目ID
 function goPage(key) {
-  console.log("跳转到：", key);
+  const currentRouteName = route.path.split("/").pop();
+  const isProgressPage = currentRouteName === "testbank-generate-progress";
 
-  // 获取当前项目ID
-  const projectId = route.params.projectId;
+  if (isProgressPage) {
+    // 创建一个简单的输入对话框
+    let inputValue = "";
 
-  // 构建带有项目ID的路由（如果存在）
-  if (projectId) {
-    router.push(`/project/${projectId}/${key}`);
+    Modal.confirm({
+      title: "请输入题库名称",
+      content: createVNode("div", {}, [
+        createVNode(Input, {
+          placeholder: "请输入题库名称",
+          "onUpdate:value": (value) => {
+            inputValue = value;
+          },
+        }),
+      ]),
+      okText: "确认",
+      cancelText: "取消",
+      onOk: async () => {
+        const projectId = route.params.projectId;
+        const questionBankId = counterStore.questionBankId;
+        const bankName = inputValue;
+
+        if (!projectId || !questionBankId) {
+          message.error("缺少必要参数");
+          return Promise.reject("缺少参数");
+        }
+
+        if (!bankName || bankName.trim() === "") {
+          message.error("题库名称不能为空");
+          return Promise.reject("题库名称为空");
+        }
+
+        // 要发送的数据
+        const requestData = {
+          question_bank_id: questionBankId,
+          save_questions: true,
+          bank_name: bankName.trim(),
+        };
+
+        // 打印要发送的数据（用于调试）
+        console.log(
+          "请求地址:",
+          `http://127.0.0.1:8000/api/question-bank/${projectId}/cancel/`
+        );
+        console.log("请求头:", {
+          Authorization: `Bearer ${counterStore.access}`,
+        });
+        console.log("发送的数据:", requestData);
+
+        try {
+          const response = await axios.post(
+            `http://127.0.0.1:8000/api/question-bank/${projectId}/cancel/`,
+            requestData,
+            {
+              headers: {
+                Authorization: `Bearer ${counterStore.access}`,
+              },
+            }
+          );
+
+          if (
+            response.data.status === 200 &&
+            response.data.data.status === "success"
+          ) {
+            message.success("操作成功");
+            // 跳转到目标页面
+            router.push(`/project/${projectId}/${key}`);
+          } else {
+            message.error("提交失败");
+            return Promise.reject("提交失败");
+          }
+        } catch (error) {
+          console.error("请求失败:", error);
+
+          // 打印错误响应数据（如果有的话）
+          if (error.response) {
+            // 后端返回了响应，但状态码不是 2xx
+            console.error("服务器响应数据:", error.response.data);
+            console.error("状态码:", error.response.status);
+          } else if (error.request) {
+            // 请求已发出，但未收到响应
+            console.error("无响应，请求未被接收:", error.request);
+          } else {
+            // 其他错误
+            console.error("其他错误:", error.message);
+          }
+
+          message.error("请求失败，请重试");
+          return Promise.reject(error);
+        }
+      },
+      onCancel: () => {
+        console.log("用户取消操作");
+      },
+    });
   } else {
-    // 否则使用不带项目ID的路由（用于Qwen测试项目）
-    router.push(`/project/${key}`);
+    // 非 progress 页面直接跳转
+    const projectId = route.params.projectId;
+    if (projectId) {
+      router.push(`/project/${projectId}/${key}`);
+    } else {
+      router.push(`/project/${key}`);
+    }
   }
 }
 
@@ -421,7 +496,6 @@ onMounted(() => {
   } else {
     console.log("Project.vue: 使用store中的项目ID:", counterStore.projectId);
   }
-
   // 添加项目变更监听
   window.addEventListener("project-changed", handleProjectChange);
 });
@@ -430,21 +504,6 @@ onUnmounted(() => {
   // 移除事件监听器
   window.removeEventListener("project-changed", handleProjectChange);
 });
-
-// 页面标题映射
-const pageTitleMap = {
-  console: "控制台",
-  "testbank-generate": "题库生成",
-  "testbank-manage": "题库管理",
-  "testbank-extension": "题库变形扩展",
-  "testbank-test": "测试执行",
-  "jailbreak-transform": "越狱变形测试",
-  "test-manage": "测试管理",
-  "test-review": "测试审核",
-  "perf-eval": "模型评估",
-  "report-generate": "报告生成",
-  "report-manage": "报告管理",
-};
 
 function goBackToHome() {
   console.log("返回主页");
@@ -458,59 +517,49 @@ function goBackToHome() {
   height: 100vh;
   display: flex;
 }
-
 .full-layout {
   width: 100%;
   height: 100%;
 }
-
 .layout-sider {
   background-color: #fff !important;
   display: flex;
   flex-direction: column;
 }
-
 .sider-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
-
 .logo-area {
   display: flex;
   align-items: center;
   padding: 16px;
   min-height: 64px;
 }
-
 .logo-icon {
   font-size: 32px;
   color: #fa541c;
   margin-right: 8px;
 }
-
 .logo-text {
   font-size: 18px;
   font-weight: 600;
   color: #333;
 }
-
 .menu-top {
   flex: 1;
 }
-
 .menu-bottom {
   margin-top: auto;
   padding-bottom: 16px;
 }
-
 .version-info {
   text-align: center;
   font-size: 14px;
   color: #999;
   margin-top: 16px;
 }
-
 .layout-header {
   background: #fff !important;
   display: flex;
@@ -520,43 +569,35 @@ function goBackToHome() {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   justify-content: space-between;
 }
-
 .header-left {
   display: flex;
   align-items: center;
 }
-
 .collapse-btn {
   margin-right: 16px;
 }
-
 .page-title {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
   color: #333;
 }
-
 .header-right {
   display: flex;
   align-items: center;
 }
-
 .icon-btn {
   margin-right: 16px;
 }
-
 .user-info {
   display: flex;
   align-items: center;
   cursor: pointer;
 }
-
 .username {
   font-size: 14px;
   color: #333;
 }
-
 .layout-content {
   background: #f4f5f7;
   padding: 2%;
@@ -565,11 +606,9 @@ function goBackToHome() {
   box-sizing: border-box;
   position: relative;
 }
-
 .layout-sider .ant-menu-inline-collapsed {
   text-align: center;
 }
-
 .layout-sider .ant-menu-inline-collapsed .ant-menu-item .anticon {
   margin-right: 0 !important;
 }

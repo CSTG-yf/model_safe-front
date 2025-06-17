@@ -101,7 +101,7 @@ async function fetchTestProgress() {
   try {
     const response = await axios({
       method: "post",
-      url: `http://127.0.0.1:8000/api/model-evaluation/${projectId}/process/`,
+      url: `http://127.0.0.1:8000/api/model-evaluation/${projectId}/progress/`,
       headers: {
         Authorization: `Bearer ${counterStore.access}`,
         "Content-Type": "application/json",

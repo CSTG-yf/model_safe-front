@@ -17,12 +17,12 @@
         <!-- 生成中显示进度圈，生成完成显示成功图标 -->
         <template v-if="!generateCompleted">
           <a-progress
-              type="circle"
-              :percent="Math.floor(generateProgress)"
-              :width="320"
-              :stroke-color="progressColor"
-              :stroke-width="10"
-              :format="(percent) => `${percent}%`"
+            type="circle"
+            :percent="Math.floor(generateProgress)"
+            :width="320"
+            :stroke-color="progressColor"
+            :stroke-width="10"
+            :format="(percent) => `${percent}%`"
           />
           <div class="progress-status">{{ generateStatus }}</div>
         </template>
@@ -32,12 +32,14 @@
             <div class="success-text">题库生成已完成!</div>
           </div>
         </template>
-        <div v-if="lastProgressData" class="progress-debug">
-          最近进度数据: {{ JSON.stringify(lastProgressData) }}
-        </div>
+
         <!-- 调试信息 -->
-        <div class="debug-info" style="margin-top: 10px; font-size: 12px; color: #666;">
-          当前进度: {{ generateProgress }} / 最大允许: {{ maxAllowedProgress }}
+        <div
+          class="debug-info"
+          style="margin-top: 10px; font-size: 12px; color: #666"
+        >
+          当前显示进度: {{ generateProgress.toFixed(1) }}% | 目标进度:
+          {{ targetProgress }}% | 后端进度: {{ backendProgress }}%
         </div>
       </div>
     </div>
@@ -45,10 +47,10 @@
     <!-- 底部操作区域 -->
     <div class="footer-area">
       <a-button
-          type="primary"
-          class="next-btn"
-          @click="goNextStep"
-          :disabled="!generateCompleted"
+        type="primary"
+        class="next-btn"
+        @click="goNextStep"
+        :disabled="!generateCompleted"
       >
         下一步
       </a-button>
@@ -57,7 +59,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { CheckCircleFilled } from "@ant-design/icons-vue";
 import { useRouter, useRoute } from "vue-router";
 import { useCounterStore } from "@/stores/counterStore.js";
@@ -68,20 +70,20 @@ const router = useRouter();
 const route = useRoute();
 const counterStore = useCounterStore();
 
-// 生成进度
-const generateProgress = ref(1); // 从 1% 开始
-// 允许的最大进度
-const maxAllowedProgress = ref(1);
+// 当前显示的进度（动画进度）
+const generateProgress = ref(1); // 从 1% 开始显示
+// 目标进度（从后端获取的进度）
+const targetProgress = ref(1);
+// 后端返回的原始进度值
+const backendProgress = ref(0);
 // 生成状态文本
-const generateStatus = ref("正在生成题库...");
+const generateStatus = ref("正在初始化题库生成...");
 // 生成是否完成
 const generateCompleted = ref(false);
 // 轮询定时器
 const progressTimer = ref(null);
 // 动画定时器
 const animationTimer = ref(null);
-// 最近接收的进度数据
-const lastProgressData = ref(null);
 
 // 进度颜色
 const progressColor = computed(() => {
@@ -90,6 +92,7 @@ const progressColor = computed(() => {
   return "#52c41a";
 });
 
+// 获取生成进度
 // 获取生成进度
 async function fetchGenerateProgress() {
   const projectId = route.params.projectId;
@@ -111,43 +114,52 @@ async function fetchGenerateProgress() {
     });
 
     console.log("接收到的进度数据:", response.data);
-    lastProgressData.value = response.data; // 更新最近接收的数据显示
 
-    if (response.data.status === 0 && response.data.data) {
-      const { progress, status, state, message } = response.data.data;
+    // 修复：检查 status 是否为 'success'，而不是数字 0
+    if (
+      response.data.status === "success" &&
+      response.data.progress !== undefined
+    ) {
+      const { progress, status, state, message } = response.data;
 
       console.log("解析的进度信息:", { progress, status, state, message });
 
-      if (progress !== undefined) {
-        const oldMaxProgress = maxAllowedProgress.value;
-        // 更新允许的最大进度
-        maxAllowedProgress.value = Math.max(maxAllowedProgress.value, progress);
+      // 更新后端进度
+      backendProgress.value = progress;
 
-        console.log("进度更新:", {
-          oldMax: oldMaxProgress,
-          newMax: maxAllowedProgress.value,
-          currentProgress: generateProgress.value,
-          backendProgress: progress
-        });
+      // 设置新的目标进度（确保不小于当前显示进度）
+      const newTargetProgress = Math.max(progress, generateProgress.value);
 
-        // 更新状态文本
-        if (message) {
-          generateStatus.value = message;
-        } else {
-          // 根据进度更新默认状态文本
-          updateStatusByProgress(progress);
-        }
+      console.log("进度更新:", {
+        currentDisplay: generateProgress.value,
+        backendProgress: progress,
+        oldTarget: targetProgress.value,
+        newTarget: newTargetProgress,
+      });
 
-        // 如果进度达到100%，则生成完成
-        if (progress >= 100) {
-          generateCompleted.value = true;
-          generateStatus.value = "题库生成已完成!";
-          generateProgress.value = 100; // 确保进度条显示100%
-          stopProgressPolling();
-          stopProgressAnimation();
-          console.log("题库生成完成，停止轮询");
-        }
+      // 只有当新目标大于当前目标时才更新并启动动画
+      if (newTargetProgress > targetProgress.value) {
+        targetProgress.value = newTargetProgress;
+        startProgressAnimation();
       }
+
+      // 更新状态文本
+      if (message) {
+        generateStatus.value = message;
+      } else {
+        updateStatusByProgress(progress);
+      }
+
+      // 如果进度达到100%，则生成完成
+      if (progress >= 100) {
+        targetProgress.value = 100;
+        generateCompleted.value = true;
+        generateStatus.value = "题库生成已完成!";
+        stopProgressPolling();
+        console.log("题库生成完成，停止轮询");
+      }
+    } else {
+      console.warn("响应格式不正确或状态不是success:", response.data);
     }
   } catch (error) {
     console.error("获取生成进度失败:", error);
@@ -177,7 +189,7 @@ function startProgressPolling() {
   // 立即获取一次进度
   fetchGenerateProgress();
 
-  // 每3秒轮询一次（缩短间隔以便更快看到效果）
+  // 每3秒轮询一次
   progressTimer.value = setInterval(() => {
     console.log("执行定时轮询...");
     fetchGenerateProgress();
@@ -193,6 +205,46 @@ function stopProgressPolling() {
   }
 }
 
+// 启动进度动画（从当前进度增长到目标进度）
+function startProgressAnimation() {
+  // 先停止之前的动画
+  stopProgressAnimation();
+
+  console.log("启动进度动画", {
+    from: generateProgress.value,
+    to: targetProgress.value,
+  });
+
+  // 如果当前进度已经达到目标进度，无需动画
+  if (generateProgress.value >= targetProgress.value) {
+    console.log("当前进度已达到目标，无需动画");
+    return;
+  }
+
+  const speed = 0.8; // 动画速度（每100ms增长0.8%）
+
+  animationTimer.value = setInterval(() => {
+    if (generateProgress.value < targetProgress.value) {
+      // 增长进度，但不超过目标值
+      generateProgress.value = Math.min(
+        generateProgress.value + speed,
+        targetProgress.value
+      );
+
+      console.log(
+        "进度动画:",
+        generateProgress.value.toFixed(1),
+        "->",
+        targetProgress.value
+      );
+    } else {
+      // 达到目标进度，停止动画
+      console.log("进度动画完成，当前进度:", generateProgress.value);
+      stopProgressAnimation();
+    }
+  }, 100); // 每100ms更新一次
+}
+
 // 停止进度动画
 function stopProgressAnimation() {
   if (animationTimer.value) {
@@ -202,61 +254,20 @@ function stopProgressAnimation() {
   }
 }
 
-// 启动或继续进度动画
-function startOrContinueProgressAnimation() {
-  // 先停止之前的动画
-  stopProgressAnimation();
-
-  console.log("启动/继续进度动画", {
-    currentProgress: generateProgress.value,
-    maxAllowed: maxAllowedProgress.value
-  });
-
-  // 如果当前进度已经达到或超过最大允许进度，则不需要动画
-  if (generateProgress.value >= maxAllowedProgress.value) {
-    console.log("当前进度已达到最大值，无需动画");
-    return;
-  }
-
-  const speed = 0.5; // 进度条增速（调慢一点，更平滑）
-
-  animationTimer.value = setInterval(() => {
-    if (generateProgress.value < maxAllowedProgress.value && !generateCompleted.value) {
-      generateProgress.value = Math.min(generateProgress.value + speed, maxAllowedProgress.value);
-      console.log("进度动画更新:", generateProgress.value.toFixed(1));
-    } else {
-      console.log("进度动画达到目标值，停止动画");
-      stopProgressAnimation();
-    }
-  }, 100); // 每100ms更新一次进度
-}
-
-// 监听最大允许进度的变化
-watch(maxAllowedProgress, (newVal, oldVal) => {
-  console.log("maxAllowedProgress 变化:", oldVal, "->", newVal);
-
-  // 只有当新值大于旧值，且新值大于当前显示进度，且未完成时，才继续动画
-  if (newVal > oldVal && newVal > generateProgress.value && !generateCompleted.value) {
-    console.log("检测到进度上限增加，继续动画到新上限");
-    startOrContinueProgressAnimation();
-  }
-});
-
 // 跳转到下一步
 function goNextStep() {
   if (generateCompleted.value) {
     const projectId = route.params.projectId;
     const questionBankId = counterStore.questionBankId;
 
-    // 跳转并传递 questionBankId 作为查询参数
     router.push({
       path: `/project/${projectId}/testbank-generate-complete`,
-      query: { questionBankId }, // 将 questionBankId 作为查询参数传递
+      query: { questionBankId },
     });
   }
 }
 
-// 页面加载时自动开始生成进度
+// 页面加载时自动开始生成
 onMounted(async () => {
   const projectId = route.params.projectId;
   const questionBankId = counterStore.questionBankId;
@@ -268,8 +279,7 @@ onMounted(async () => {
     return;
   }
 
-  // 启动进度条动画和轮询
-  startOrContinueProgressAnimation();
+  // 开始轮询进度
   startProgressPolling();
 
   try {
@@ -292,19 +302,17 @@ onMounted(async () => {
       },
     });
 
-    // 打印接收到的响应数据，方便调试
     console.log("后端响应数据:", response.data);
   } catch (error) {
     console.error("题库生成请求失败:", error);
 
-    // 详细错误信息
     if (error.response) {
       console.error("错误状态码:", error.response.status);
       console.error("错误响应数据:", error.response.data);
       message.error(
-          `请求失败: ${error.response.status} - ${
-              error.response.data.message || error.response.statusText
-          }`
+        `请求失败: ${error.response.status} - ${
+          error.response.data.message || error.response.statusText
+        }`
       );
     } else {
       message.error(error.message || "请求失败");
@@ -331,20 +339,20 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-/* 标题 + 进度条 */
 .header-area {
   margin-bottom: 40px;
 }
+
 .page-title {
   margin: 0 0 12px;
   font-size: 24px;
   font-weight: 600;
 }
+
 .step-bar {
   margin-bottom: 16px;
 }
 
-/* 生成进度区域 */
 .generate-progress-area {
   flex: 1;
   display: flex;
@@ -378,17 +386,14 @@ onBeforeUnmount(() => {
   color: #52c41a;
 }
 
-.progress-debug {
+.debug-info {
   margin-top: 10px;
   font-size: 12px;
   color: #999;
-  max-width: 320px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 400px;
+  word-wrap: break-word;
 }
 
-/* 底部按钮区域 */
 .footer-area {
   display: flex;
   justify-content: flex-end;
