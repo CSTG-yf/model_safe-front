@@ -224,8 +224,13 @@ async function deleteBank() {
 }
 
 // 页面加载时获取题库列表
+// 页面加载时获取题库列表，并在 0.5 秒后刷新一次
 onMounted(() => {
-  fetchTestBanks();
+  fetchTestBanks(); // 初始加载
+
+  setTimeout(() => {
+    fetchTestBanks(); // 延迟刷新一次
+  }, 500);
 });
 </script>
 

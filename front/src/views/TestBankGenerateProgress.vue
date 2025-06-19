@@ -98,7 +98,7 @@ async function fetchGenerateProgress() {
   const projectId = route.params.projectId;
   const questionBankId = counterStore.questionBankId;
 
-  console.log("正在获取生成进度...", { projectId, questionBankId });
+  // console.log("正在获取生成进度...", { projectId, questionBankId });
 
   try {
     const response = await axios({
@@ -113,7 +113,7 @@ async function fetchGenerateProgress() {
       },
     });
 
-    console.log("接收到的进度数据:", response.data);
+    // console.log("接收到的进度数据:", response.data);
 
     // 修复：检查 status 是否为 'success'，而不是数字 0
     if (
@@ -122,7 +122,7 @@ async function fetchGenerateProgress() {
     ) {
       const { progress, status, state, message } = response.data;
 
-      console.log("解析的进度信息:", { progress, status, state, message });
+      // console.log("解析的进度信息:", { progress, status, state, message });
 
       // 更新后端进度
       backendProgress.value = progress;
@@ -130,12 +130,12 @@ async function fetchGenerateProgress() {
       // 设置新的目标进度（确保不小于当前显示进度）
       const newTargetProgress = Math.max(progress, generateProgress.value);
 
-      console.log("进度更新:", {
-        currentDisplay: generateProgress.value,
-        backendProgress: progress,
-        oldTarget: targetProgress.value,
-        newTarget: newTargetProgress,
-      });
+      // console.log("进度更新:", {
+      //   currentDisplay: generateProgress.value,
+      //   backendProgress: progress,
+      //   oldTarget: targetProgress.value,
+      //   newTarget: newTargetProgress,
+      // });
 
       // 只有当新目标大于当前目标时才更新并启动动画
       if (newTargetProgress > targetProgress.value) {
@@ -156,15 +156,15 @@ async function fetchGenerateProgress() {
         generateCompleted.value = true;
         generateStatus.value = "题库生成已完成!";
         stopProgressPolling();
-        console.log("题库生成完成，停止轮询");
+        // console.log("题库生成完成，停止轮询");
       }
     } else {
-      console.warn("响应格式不正确或状态不是success:", response.data);
+      // console.warn("响应格式不正确或状态不是success:", response.data);
     }
   } catch (error) {
-    console.error("获取生成进度失败:", error);
+    // console.error("获取生成进度失败:", error);
     if (error.response) {
-      console.error("错误响应:", error.response.data);
+      // console.error("错误响应:", error.response.data);
     }
   }
 }
@@ -184,14 +184,14 @@ function updateStatusByProgress(progress) {
 
 // 开始轮询进度
 function startProgressPolling() {
-  console.log("开始轮询进度...");
+  // console.log("开始轮询进度...");
 
   // 立即获取一次进度
   fetchGenerateProgress();
 
   // 每3秒轮询一次
   progressTimer.value = setInterval(() => {
-    console.log("执行定时轮询...");
+    // console.log("执行定时轮询...");
     fetchGenerateProgress();
   }, 3000);
 }
@@ -199,7 +199,7 @@ function startProgressPolling() {
 // 停止轮询进度
 function stopProgressPolling() {
   if (progressTimer.value) {
-    console.log("停止进度轮询");
+    // console.log("停止进度轮询");
     clearInterval(progressTimer.value);
     progressTimer.value = null;
   }
@@ -210,14 +210,14 @@ function startProgressAnimation() {
   // 先停止之前的动画
   stopProgressAnimation();
 
-  console.log("启动进度动画", {
-    from: generateProgress.value,
-    to: targetProgress.value,
-  });
+  // console.log("启动进度动画", {
+  //   from: generateProgress.value,
+  //   to: targetProgress.value,
+  // });
 
   // 如果当前进度已经达到目标进度，无需动画
   if (generateProgress.value >= targetProgress.value) {
-    console.log("当前进度已达到目标，无需动画");
+    // console.log("当前进度已达到目标，无需动画");
     return;
   }
 
@@ -231,15 +231,15 @@ function startProgressAnimation() {
         targetProgress.value
       );
 
-      console.log(
-        "进度动画:",
-        generateProgress.value.toFixed(1),
-        "->",
-        targetProgress.value
-      );
+      // console.log(
+      //   "进度动画:",
+      //   generateProgress.value.toFixed(1),
+      //   "->",
+      //   targetProgress.value
+      // );
     } else {
       // 达到目标进度，停止动画
-      console.log("进度动画完成，当前进度:", generateProgress.value);
+      // console.log("进度动画完成，当前进度:", generateProgress.value);
       stopProgressAnimation();
     }
   }, 100); // 每100ms更新一次
@@ -272,7 +272,7 @@ onMounted(async () => {
   const projectId = route.params.projectId;
   const questionBankId = counterStore.questionBankId;
 
-  console.log("页面加载，参数:", { projectId, questionBankId });
+  // console.log("页面加载，参数:", { projectId, questionBankId });
 
   if (!projectId || !questionBankId) {
     message.error("缺少必要参数");
@@ -283,7 +283,7 @@ onMounted(async () => {
   startProgressPolling();
 
   try {
-    console.log("准备发送题库生成请求...");
+    // console.log("准备发送题库生成请求...");
 
     // 发送题库生成请求
     const response = await axios({

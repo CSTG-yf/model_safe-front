@@ -329,20 +329,19 @@ const pageTitleMap = {
   "report-manage": "报告管理",
 };
 
-// 修复项目内导航，确保保留项目ID
 function goPage(key) {
   const currentRouteName = route.path.split("/").pop();
   const isProgressPage = currentRouteName === "testbank-generate-progress";
+  const isTestPage = currentRouteName === "testbank-test2";
 
-  if (isProgressPage) {
-    // 创建一个简单的输入对话框
+  if (isProgressPage || isTestPage) {
     let inputValue = "";
 
     Modal.confirm({
-      title: "请输入题库名称",
+      title: "请输入保存的名称",
       content: createVNode("div", {}, [
         createVNode(Input, {
-          placeholder: "请输入题库名称",
+          placeholder: isProgressPage ? "请输入题库名称" : "请输入测评名称",
           "onUpdate:value": (value) => {
             inputValue = value;
           },
@@ -352,75 +351,118 @@ function goPage(key) {
       cancelText: "取消",
       onOk: async () => {
         const projectId = route.params.projectId;
-        const questionBankId = counterStore.questionBankId;
-        const bankName = inputValue;
 
-        if (!projectId || !questionBankId) {
-          message.error("缺少必要参数");
-          return Promise.reject("缺少参数");
+        let url, requestData, requestName;
+
+        // 处理 testbank-generate-progress 页面逻辑
+        if (isProgressPage) {
+          const questionBankId = counterStore.questionBankId;
+          const bankName = inputValue;
+
+          if (!projectId || !questionBankId) {
+            message.error("缺少必要参数");
+            return Promise.reject("缺少参数");
+          }
+
+          if (!bankName || bankName.trim() === "") {
+            message.error("题库名称不能为空");
+            return Promise.reject("题库名称为空");
+          }
+
+          url = `http://127.0.0.1:8000/api/question-bank/${projectId}/cancel/`;
+          requestData = {
+            question_bank_id: questionBankId,
+            save_questions: true,
+            bank_name: bankName.trim(),
+          };
+          requestName = "题库生成退出";
+        }
+        // 处理 testbank-test2 页面逻辑
+        else if (isTestPage) {
+          const evaluationId = route.query.evaluationId;
+          const evaluationName = inputValue;
+
+          if (!projectId || !evaluationId) {
+            message.error("缺少必要参数");
+            return Promise.reject("缺少参数");
+          }
+
+          if (!evaluationName || evaluationName.trim() === "") {
+            message.error("测评名称不能为空");
+            return Promise.reject("测评名称为空");
+          }
+
+          url = `http://127.0.0.1:8000/api/model-evaluation/${projectId}/cancel/`;
+          requestData = {
+            evaluation_id: parseInt(evaluationId),
+            save_evaluation: true,
+            evaluation_name: evaluationName.trim(),
+          };
+          requestName = "模型测评退出";
         }
 
-        if (!bankName || bankName.trim() === "") {
-          message.error("题库名称不能为空");
-          return Promise.reject("题库名称为空");
-        }
-
-        // 要发送的数据
-        const requestData = {
-          question_bank_id: questionBankId,
-          save_questions: true,
-          bank_name: bankName.trim(),
-        };
-
-        // 打印要发送的数据（用于调试）
-        console.log(
-          "请求地址:",
-          `http://127.0.0.1:8000/api/question-bank/${projectId}/cancel/`
-        );
-        console.log("请求头:", {
+        // 打印请求信息用于调试
+        console.log(`【${requestName}】请求地址:`, url);
+        console.log(`【${requestName}】请求头:`, {
           Authorization: `Bearer ${counterStore.access}`,
         });
-        console.log("发送的数据:", requestData);
+        console.log(`【${requestName}】发送的数据:`, requestData);
 
         try {
-          const response = await axios.post(
-            `http://127.0.0.1:8000/api/question-bank/${projectId}/cancel/`,
-            requestData,
-            {
-              headers: {
-                Authorization: `Bearer ${counterStore.access}`,
-              },
-            }
-          );
+          const response = await axios.post(url, requestData, {
+            headers: {
+              Authorization: `Bearer ${counterStore.access}`,
+            },
+          });
 
+          console.log(`【${requestName}】后端返回的完整数据:`, response.data);
+
+          // ✅ 改为适配实际返回结构的判断方式
           if (
             response.data.status === 200 &&
-            response.data.data.status === "success"
+            response.data.data?.status === "success"
           ) {
             message.success("操作成功");
-            // 跳转到目标页面
-            router.push(`/project/${projectId}/${key}`);
+
+            setTimeout(() => {
+              router.push(`/project/${projectId}/${key}`);
+            }, 500);
+          } else if (response.data.status === "success") {
+            message.success("操作成功");
+
+            setTimeout(() => {
+              router.push(`/project/${projectId}/${key}`);
+            }, 500);
           } else {
-            message.error("提交失败");
+            message.error(
+              "提交失败：" +
+                (response.data.message ||
+                  response.data.data?.message ||
+                  "未知错误")
+            );
             return Promise.reject("提交失败");
           }
         } catch (error) {
-          console.error("请求失败:", error);
+          console.error(`【${requestName}】请求失败:`, error);
 
-          // 打印错误响应数据（如果有的话）
           if (error.response) {
-            // 后端返回了响应，但状态码不是 2xx
-            console.error("服务器响应数据:", error.response.data);
-            console.error("状态码:", error.response.status);
+            console.error(
+              `【${requestName}】服务器响应数据:`,
+              error.response.data
+            );
+            console.error(`【${requestName}】状态码:`, error.response.status);
+            message.error(`请求失败：${error.response.status}`);
           } else if (error.request) {
-            // 请求已发出，但未收到响应
-            console.error("无响应，请求未被接收:", error.request);
+            console.error(
+              `【${requestName}】无响应，请求未被接收:`,
+              error.request
+            );
+            message.error("网络错误，请检查连接");
           } else {
-            // 其他错误
-            console.error("其他错误:", error.message);
+            console.error(`【${requestName}】其他错误:`, error.message);
+            message.error("请求失败，请重试");
           }
 
-          message.error("请求失败，请重试");
           return Promise.reject(error);
         }
       },
@@ -429,7 +471,7 @@ function goPage(key) {
       },
     });
   } else {
-    // 非 progress 页面直接跳转
+    // 非特定页面，直接跳转
     const projectId = route.params.projectId;
     if (projectId) {
       router.push(`/project/${projectId}/${key}`);
