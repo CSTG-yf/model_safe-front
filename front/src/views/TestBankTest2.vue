@@ -271,9 +271,6 @@ async function runTest() {
 
     console.log("测试启动响应:", res.data);
     message.success("测试已启动");
-
-    // 启动测试后开始轮询进度
-    startProgressPolling();
   } catch (err) {
     console.error("测试启动失败:", err);
     message.error("测试启动失败");
@@ -302,6 +299,7 @@ onMounted(() => {
   }
 
   console.log("页面加载，参数:", { evaluationId, questionBankId, projectId });
+  startProgressPolling();
 
   // 启动测试
   runTest();

@@ -5,20 +5,21 @@
 
     <!-- 表单 -->
     <a-form layout="vertical" class="form-area">
-      <!-- 描述输入框 -->
+      <!-- 模型描述输入框 -->
       <a-form-item label="模型描述">
-        <a-input v-model="description" placeholder="请输入模型描述" />
+        <a-input v-model:value="description" placeholder="请输入模型描述" />
       </a-form-item>
 
       <!-- AI 模型选择 -->
       <a-form-item label="选择 AI 模型">
-        <a-select v-model="aiModelName">
-          <a-select-option value="gpt-4">GPT-4</a-select-option>
-          <a-select-option value="Chat-LLM">Chat-LLM</a-select-option>
-          <a-select-option value="Qwen2.5Max">Qwen2.5Max</a-select-option>
-          <a-select-option value="Deepseek-v3">Deepseek-v3</a-select-option>
-          <a-select-option value="kimi">kimi</a-select-option>
-          <a-select-option value="豆包">豆包</a-select-option>
+        <a-select v-model:value="aiModelName">
+          <a-select-option
+            v-for="model in aiModelOptions"
+            :key="model"
+            :value="model"
+          >
+            {{ formatModelDisplayName(model) }}
+          </a-select-option>
         </a-select>
       </a-form-item>
 
@@ -36,13 +37,58 @@ import { useCounterStore } from "@/stores/counterStore.js";
 import { useRouter } from "vue-router";
 import axios from "axios";
 
+// ========== 数据定义 ==========
 const counterStore = useCounterStore();
-const loading = ref(false); // 加载状态
-const description = ref(""); // 输入的模型描述
-const aiModelName = ref("gpt-4"); // 选择的 AI 模型
 const router = useRouter();
 
-// 发送 API 请求
+const loading = ref(false); // 加载状态
+const description = ref(""); // 输入的模型描述
+
+// 所有可用 AI 模型列表
+const aiModelOptions = [
+  "glm-4-plus",
+  "glm-4-long",
+  "glm-4-flash",
+  "glm-4",
+  "glm-3-turbo",
+  "qwen-turbo",
+  "qwen-plus",
+  "moonshot-v1-8k",
+  "moonshot-v1-32k",
+  "moonshot-v1-128k",
+  "deepseek-chat",
+  "deepseek-reasoner",
+];
+
+// 默认选中第一个模型
+const aiModelName = ref(aiModelOptions[0]);
+
+// ========== 工具函数 ==========
+/**
+ * 将模型英文名转换为更友好的显示名称
+ */
+function formatModelDisplayName(modelKey) {
+  const displayNames = {
+    "glm-4-plus": "GLM-4 Plus",
+    "glm-4-long": "GLM-4 Long",
+    "glm-4-flash": "GLM-4 Flash",
+    "glm-4": "GLM-4",
+    "glm-3-turbo": "GLM-3 Turbo",
+    "qwen-turbo": "Qwen Turbo",
+    "qwen-plus": "Qwen Plus",
+    "moonshot-v1-8k": "Moonshot v1 (8K)",
+    "moonshot-v1-32k": "Moonshot v1 (32K)",
+    "moonshot-v1-128k": "Moonshot v1 (128K)",
+    "deepseek-chat": "DeepSeek Chat",
+    "deepseek-reasoner": "DeepSeek Reasoner",
+  };
+  return displayNames[modelKey] || modelKey;
+}
+
+// ========== 方法 ==========
+/**
+ * 提交表单，调用 API 创建项目
+ */
 async function createModel() {
   console.log("当前 access_token:", counterStore.access);
 
@@ -63,13 +109,15 @@ async function createModel() {
     ai_model_name: aiModelName.value, // 选择的模型
   };
 
+  console.log("请求数据:", requestData);
+
   try {
     const response = await axios.post(
-      "http://127.0.0.1:8000/api/projects/", // 你的 API 地址
+      "http://127.0.0.1:8000/api/projects/",
       requestData,
       {
         headers: {
-          Authorization: `Bearer ${counterStore.access}`, // 使用 Pinia 里的 Token
+          Authorization: `Bearer ${counterStore.access}`,
           "Content-Type": "application/json",
         },
       }
@@ -79,11 +127,12 @@ async function createModel() {
 
     if (response.data.result === "success") {
       const projectId = response.data.project.id;
-      counterStore.setProjectId(projectId); // 存入 Pinia
+      counterStore.setProjectId(projectId);
       console.log("项目创建成功，存入 projectId:", projectId);
     } else {
       console.error("项目创建失败:", response.data.message);
     }
+
     router.push("/home/newproject/step3");
   } catch (error) {
     console.error("API 请求失败:", error.response?.data || error.message);
