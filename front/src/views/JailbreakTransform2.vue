@@ -221,6 +221,8 @@ const projectId = ref(null);
 const modelName = ref("");
 const taskId = ref("");
 
+const iterationMap = new Map();
+
 // 测试数据处理
 const jailbreakTests = ref([]);
 let currentTestId = 1;
@@ -325,20 +327,13 @@ function formatMarkdown(text) {
 function processTestData(data) {
   if (!data || !data.data) return;
 
-  // 对于complete类型的消息，只存储数据，不创建新测试案例
+  // 对于complete类型的消息，保持原有逻辑不变
   if (data.type === "complete") {
     console.log("收到完成消息:", data);
     completionData.value = data.data;
-
-    // 更新完成测试数
     completedTests.value++;
-
-    // 更新测试进度
     updateTestProgress();
-
-    // 标记当前需要新建测试案例
     currentTestId++;
-
     return;
   }
 
@@ -348,45 +343,54 @@ function processTestData(data) {
     const category = data.data.category_index;
     const title = data.data.title_index;
 
-    // 查找或创建测试案例 - 使用当前测试ID
+    // 生成唯一的迭代ID
+    const iterationId = `${currentTestId}-${entry.cycle}`;
+
+    // 查找或创建测试案例
     let testCase = jailbreakTests.value.find(
       (test) => test.id === currentTestId
     );
 
     if (!testCase) {
-      // 创建新测试案例
       testCase = {
         id: currentTestId,
         category: category,
         title: title,
-        originalPrompt:data.data.initial_question , // 第一次迭代的问题作为原始提示
+        originalPrompt: data.data.initial_question,
         iterations: [],
       };
       jailbreakTests.value.push(testCase);
       console.log(`创建新测试案例 #${currentTestId}`);
     }
 
-    // 检查是否已有相同cycle的迭代，避免重复添加
-    const existingIteration = testCase.iterations.find(
-      (iter) => iter.cycle === entry.cycle
-    );
-    if (!existingIteration) {
-      // 添加迭代，使用cycle字段作为迭代次数
-      testCase.iterations.push({
+    // 使用Map存储迭代数据
+    if (!iterationMap.has(iterationId)) {
+      const iterationData = {
         cycle: entry.cycle,
         improvement: entry.improvement,
         question: entry.question,
         answer: entry.answer,
         score: entry.score,
         reasons: entry.reasons,
-      });
+      };
 
-      // 更新总迭代次数
+      iterationMap.set(iterationId, iterationData);
+
+      // 清空当前测试案例的迭代数组
+      testCase.iterations = [];
+
+      // 将Map中的所有相关迭代按cycle排序后添加到数组
+      const relevantIterations = Array.from(iterationMap.entries())
+        .filter(([id]) => id.startsWith(`${currentTestId}-`))
+        .map(([, value]) => value)
+        .sort((a, b) => a.cycle - b.cycle);
+
+      testCase.iterations = relevantIterations;
+
       totalIterations.value++;
       console.log(`添加测试案例#${currentTestId}的第${entry.cycle}次迭代`);
     }
 
-    // 更新测试进度
     updateTestProgress();
   }
 }

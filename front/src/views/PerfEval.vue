@@ -193,10 +193,10 @@ async function goNextStep() {
     return;
   }
 
-  if (selectedJailbreakTaskIds.value.length === 0) {
-    alert("请至少选择一个越狱测试！");
-    return;
-  }
+  // if (selectedJailbreakTaskIds.value.length === 0) {
+  //   alert("请至少选择一个越狱测试！");
+  //   return;
+  // }
 
   // 发送请求到接口以开始评估
   const payload = {
