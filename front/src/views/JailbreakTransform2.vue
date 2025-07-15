@@ -327,71 +327,52 @@ function formatMarkdown(text) {
 function processTestData(data) {
   if (!data || !data.data) return;
 
-  // 对于complete类型的消息，保持原有逻辑不变
-  if (data.type === "complete") {
-    console.log("收到完成消息:", data);
-    completionData.value = data.data;
-    completedTests.value++;
-    updateTestProgress();
-    currentTestId++;
-    return;
+  const entry = data.data.latest_entry;
+  const category = data.data.category_index;
+  const title = data.data.title_index;
+
+  // 使用消息内容生成唯一标识，而不是全局currentTestId
+  let testCase = jailbreakTests.value.find(
+    (test) => test.category === category && test.title === title
+  );
+
+  if (!testCase) {
+    // 生成新的ID，确保连续性
+    const newId =
+      jailbreakTests.value.length > 0
+        ? Math.max(...jailbreakTests.value.map((t) => t.id)) + 1
+        : 1;
+
+    testCase = {
+      id: newId,
+      category: category,
+      title: title,
+      originalPrompt: data.data.initial_question,
+      iterations: [],
+    };
+    jailbreakTests.value.push(testCase);
   }
 
-  // 处理含有answer的测试数据
-  if (hasAnswerContent(data)) {
-    const entry = data.data.latest_entry;
-    const category = data.data.category_index;
-    const title = data.data.title_index;
+  const iterationId = `${testCase.id}-${entry.cycle}`;
 
-    // 生成唯一的迭代ID
-    const iterationId = `${currentTestId}-${entry.cycle}`;
+  if (!iterationMap.has(iterationId)) {
+    iterationMap.set(iterationId, {
+      cycle: entry.cycle,
+      improvement: entry.improvement,
+      question: entry.question,
+      answer: entry.answer,
+      score: entry.score,
+      reasons: entry.reasons,
+    });
 
-    // 查找或创建测试案例
-    let testCase = jailbreakTests.value.find(
-      (test) => test.id === currentTestId
-    );
+    // 重新排序该测试案例的迭代
+    const relevantIterations = Array.from(iterationMap.entries())
+      .filter(([id]) => id.startsWith(`${testCase.id}-`))
+      .map(([, value]) => value)
+      .sort((a, b) => a.cycle - b.cycle);
 
-    if (!testCase) {
-      testCase = {
-        id: currentTestId,
-        category: category,
-        title: title,
-        originalPrompt: data.data.initial_question,
-        iterations: [],
-      };
-      jailbreakTests.value.push(testCase);
-      console.log(`创建新测试案例 #${currentTestId}`);
-    }
-
-    // 使用Map存储迭代数据
-    if (!iterationMap.has(iterationId)) {
-      const iterationData = {
-        cycle: entry.cycle,
-        improvement: entry.improvement,
-        question: entry.question,
-        answer: entry.answer,
-        score: entry.score,
-        reasons: entry.reasons,
-      };
-
-      iterationMap.set(iterationId, iterationData);
-
-      // 清空当前测试案例的迭代数组
-      testCase.iterations = [];
-
-      // 将Map中的所有相关迭代按cycle排序后添加到数组
-      const relevantIterations = Array.from(iterationMap.entries())
-        .filter(([id]) => id.startsWith(`${currentTestId}-`))
-        .map(([, value]) => value)
-        .sort((a, b) => a.cycle - b.cycle);
-
-      testCase.iterations = relevantIterations;
-
-      totalIterations.value++;
-      console.log(`添加测试案例#${currentTestId}的第${entry.cycle}次迭代`);
-    }
-
-    updateTestProgress();
+    testCase.iterations = relevantIterations;
+    totalIterations.value++;
   }
 }
 
@@ -485,44 +466,43 @@ function connectWebSocket(task_id) {
       try {
         const message = JSON.parse(event.data);
 
-        // 处理 type: "complete" 的消息
         if (message.type === "complete") {
           console.log("收到完成消息:", message);
           completionData.value = message.data;
 
-          // 计数并更新进度
+          // 只增加完成计数，不修改currentTestId
           completedTests.value++;
           updateTestProgress();
 
           // 如果达到上限则标记测试完成
-          if (completedTests.value >= totalTestCases) {
+          if (completedTests.value >= 17) {
             testCompleted.value = true;
             testProgress.value = 100;
             testStatus.value = "测试已完成!";
           }
 
-          // 创建新的测试案例
-          currentTestId = completedTests.value + 1;
           return;
         }
 
-        // 常规消息处理
-        messages.value.push({
-          timestamp: new Date(),
-          type: message.type || "info",
-          data: message,
-        });
-
-        // 处理包含answer的消息
-        if (hasAnswerContent(message)) {
-          processTestData(message);
-          // totalIterations.value++;
-          updateTestProgress();
+        if (message.type === "error") {
+          console.error("WebSocket错误:", message.data);
+          testStatus.value = `错误: ${message.data.message}`;
+          return;
         }
 
-        updateProgress(message);
+        if (message.type === "progress") {
+          console.log("收到进度消息:", message.data);
+          return;
+        }
+
+        // 处理包含答案内容的消息
+        if (hasAnswerContent(message)) {
+          console.log("收到测试数据:", message);
+          processTestData(message);
+          updateTestProgress();
+        }
       } catch (error) {
-        console.error("解析错误:", error);
+        console.error("解析WebSocket消息时出错:", error);
       }
     };
 
@@ -823,39 +803,38 @@ function getResponseClass(score) {
 
 // 6. 更新测试进度计算
 function updateTestProgress() {
-  // 计算进度：已完成测试/总测试数
   const progress = (completedTests.value * 100) / totalTestCases;
 
-  // 对于当前测试，找到它的最高迭代次数
-  let currentTestMaxCycle = 0;
-  const currentTest = jailbreakTests.value.find(
-    (test) => test.id === currentTestId
-  );
-  if (currentTest && currentTest.iterations.length > 0) {
-    currentTestMaxCycle = Math.max(
-      ...currentTest.iterations.map((iter) => iter.cycle)
-    );
+  // 计算当前正在进行的测试数量
+  const ongoingTests = jailbreakTests.value.filter(
+    (test) => test.iterations.length > 0
+  ).length;
+
+  // 当前测试的平均进度
+  let currentTestsProgress = 0;
+  if (ongoingTests > 0 && completedTests.value < totalTestCases) {
+    const totalCurrentIterations = jailbreakTests.value
+      .filter((test) => test.iterations.length > 0)
+      .reduce((sum, test) => {
+        const maxCycle = Math.max(...test.iterations.map((iter) => iter.cycle));
+        return sum + maxCycle;
+      }, 0);
+    currentTestsProgress =
+      (totalCurrentIterations / (ongoingTests * 5) / totalTestCases) * 100;
   }
 
-  // 当前测试的进度：已完成迭代/预期迭代数(假设每个测试5次迭代)
-  const currentTestProgress = currentTestMaxCycle / 5;
-
-  // 总进度：已完成测试 + 当前测试进度比例
-  const totalProgress =
-    ((completedTests.value + Math.min(currentTestProgress, 1)) /
-      totalTestCases) *
-    100;
-
-  testProgress.value = Math.min(Math.round(totalProgress), 100);
+  testProgress.value = Math.min(
+    Math.round(progress + currentTestsProgress),
+    100
+  );
 
   // 更新状态描述
-  testStatus.value = `正在执行第 ${currentTestId} 题测试 (${completedTests.value}/${totalTestCases})`;
-
-  // 如果完成所有测试
   if (completedTests.value >= totalTestCases) {
     testCompleted.value = true;
     testStatus.value = "测试已完成!";
     testProgress.value = 100;
+  } else {
+    testStatus.value = `正在执行测试 (${completedTests.value}/${totalTestCases} 已完成)`;
   }
 }
 
