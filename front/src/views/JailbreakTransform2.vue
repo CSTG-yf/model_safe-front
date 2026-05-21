@@ -233,7 +233,7 @@ const selectedTest = ref(null);
 const activeIterationKeys = ref([0]);
 
 // 添加新的变量
-const totalTestCases = 10; // 假定总共有10个测试案例
+const totalTestCases = 17; // 假定总共有10个测试案例
 const completedTests = ref(0);
 const totalIterations = ref(0);
 
