@@ -37,6 +37,57 @@
               <span class="menu-text">控制台</span>
             </a-menu-item>
 
+            <!-- 父层级：安全评测闭环 -->
+            <a-sub-menu key="security-loop">
+              <template #icon>
+                <SafetyCertificateTwoTone :style="iconStyle" />
+              </template>
+              <template #title>
+                <span class="menu-text">安全评测闭环</span>
+              </template>
+              <a-menu-item key="safety-overview" @click="goPage('safety-overview')">
+                安全总览
+              </a-menu-item>
+              <a-menu-item key="redteam-runs" @click="goPage('redteam-runs')">
+                自适应红队
+              </a-menu-item>
+              <a-menu-item key="rag-security" @click="goPage('rag-security')">
+                RAG 污染评测
+              </a-menu-item>
+              <a-menu-item key="agent-security" @click="goPage('agent-security')">
+                Agent 工具沙箱
+              </a-menu-item>
+              <a-menu-item key="trace-explorer" @click="goPage('trace-explorer')">
+                Trace 风险归因
+              </a-menu-item>
+            </a-sub-menu>
+
+            <!-- 父层级：个性化防护 -->
+            <a-sub-menu key="protection">
+              <template #icon>
+                <DeploymentUnitOutlined :style="iconStyle" />
+              </template>
+              <template #title>
+                <span class="menu-text">个性化防护</span>
+              </template>
+              <a-menu-item key="protection-strategy" @click="goPage('protection-strategy')">
+                防护策略包
+              </a-menu-item>
+            </a-sub-menu>
+
+            <!-- 父层级：比赛材料 -->
+            <a-sub-menu key="competition">
+              <template #icon>
+                <FileTextOutlined :style="iconStyle" />
+              </template>
+              <template #title>
+                <span class="menu-text">比赛材料</span>
+              </template>
+              <a-menu-item key="competition-report" @click="goPage('competition-report')">
+                答辩材料包
+              </a-menu-item>
+            </a-sub-menu>
+
             <!-- 父层级：测试题库 -->
             <a-sub-menu key="testbank">
               <template #icon>
@@ -251,6 +302,13 @@ const sidebarWidth = 280;
 const routeToMenuMap = {
   // 控制台
   console: "console",
+  "safety-overview": "safety-overview",
+  "redteam-runs": "redteam-runs",
+  "rag-security": "rag-security",
+  "agent-security": "agent-security",
+  "trace-explorer": "trace-explorer",
+  "protection-strategy": "protection-strategy",
+  "competition-report": "competition-report",
   // 测试题库相关
   "testbank-generate": "testbank-generate",
   "testbank-generate-progress": "testbank-generate",
@@ -270,6 +328,13 @@ const routeToMenuMap = {
 
 // 父菜单映射
 const subMenuMap = {
+  "safety-overview": "security-loop",
+  "redteam-runs": "security-loop",
+  "rag-security": "security-loop",
+  "agent-security": "security-loop",
+  "trace-explorer": "security-loop",
+  "protection-strategy": "protection",
+  "competition-report": "competition",
   "testbank-generate": "testbank",
   "testbank-manage": "testbank",
   "testbank-test": "modeltest",
@@ -318,6 +383,13 @@ function getPageTitle() {
 // 页面标题映射
 const pageTitleMap = {
   console: "控制台",
+  "safety-overview": "安全总览",
+  "redteam-runs": "自适应红队",
+  "rag-security": "RAG 污染评测",
+  "agent-security": "Agent 工具沙箱",
+  "trace-explorer": "Trace 风险归因",
+  "protection-strategy": "防护策略包",
+  "competition-report": "答辩材料包",
   "testbank-generate": "题库生成",
   "testbank-manage": "题库管理",
   "testbank-extension": "题库变形扩展",

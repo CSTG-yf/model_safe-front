@@ -36,6 +36,13 @@ import ReportManage from "@/views/ReportManage.vue";
 import ReportDetail from "@/views/ReportDetail.vue";
 import TestBankGenerateProgress from "@/views/TestBankGenerateProgress.vue";
 import TestBankGenerateComplete from "@/views/TestBankGenerateComplete.vue";
+import SafetyOverview from "@/views/SafetyOverview.vue";
+import TraceExplorer from "@/views/TraceExplorer.vue";
+import RedTeamRuns from "@/views/RedTeamRuns.vue";
+import RagSecurity from "@/views/RagSecurity.vue";
+import AgentSecurity from "@/views/AgentSecurity.vue";
+import ProtectionStrategy from "@/views/ProtectionStrategy.vue";
+import CompetitionReport from "@/views/CompetitionReport.vue";
 import testjson from '../views/testjson.vue'
 import { useCounterStore } from '@/stores/counterStore';
 
@@ -67,8 +74,15 @@ const routes = [
         path: '/project/:projectId?',
         component: Project,
         children: [
-            { path: '', redirect: 'console' },
+            { path: '', redirect: 'safety-overview' },
             { path: 'console', component: Console },
+            { path: 'safety-overview', component: SafetyOverview },
+            { path: 'redteam-runs', component: RedTeamRuns },
+            { path: 'rag-security', component: RagSecurity },
+            { path: 'agent-security', component: AgentSecurity },
+            { path: 'trace-explorer', component: TraceExplorer },
+            { path: 'protection-strategy', component: ProtectionStrategy },
+            { path: 'competition-report', component: CompetitionReport },
             { path: 'testbank-generate', component: TestBankGenerate },
             { path: 'testbank-generate-progress', component: TestBankGenerateProgress },
             { path: 'testbank-generate-complete', component: TestBankGenerateComplete },
